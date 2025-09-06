@@ -192,5 +192,67 @@ router.post("/complete-profile", async (req, res) => {
   }
 });
 
+// 📌 Login (şifre ile giriş)
+router.post("/login", async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    const user = await User.findOne({ phone });
+
+    if (!user) {
+      return res.status(400).json({ status: "error", message: "Kullanıcı bulunamadı" });
+    }
+
+    // Şifre doğrulama
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ status: "error", message: "Şifre hatalı" });
+    }
+
+    // Kullanıcı durum kontrolü
+    if (!user.verified) {
+      return res.json({ status: "verify", message: "Doğrulama kodu gerekli" });
+    }
+    if (!user.pinCreated) {
+      return res.json({ status: "createPin", message: "PIN oluşturmanız gerekiyor" });
+    }
+    if (!user.profileCompleted) {
+      return res.json({ status: "profileInfo", message: "Profil bilgilerini doldurmanız gerekiyor" });
+    }
+
+    // İlk login → DB güncelle
+    if (!user.firstLoginCompleted) {
+      user.firstLoginCompleted = true;
+      await user.save();
+    }
+
+    return res.json({ status: "home", message: "Giriş başarılı" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error", message: "Sunucu hatası" });
+  }
+});
+
+// 📌 Login (PIN ile giriş)
+router.post("/login-pin", async (req, res) => {
+  try {
+    const { phone, pin } = req.body;
+    const user = await User.findOne({ phone });
+
+    if (!user || !user.pin) {
+      return res.status(400).json({ status: "error", message: "Kullanıcı veya PIN bulunamadı" });
+    }
+
+    const isMatch = await bcrypt.compare(pin, user.pin);
+    if (!isMatch) {
+      return res.status(400).json({ status: "error", message: "PIN hatalı" });
+    }
+
+    return res.json({ status: "home", message: "PIN ile giriş başarılı" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error", message: "Sunucu hatası" });
+  }
+});
+
 
 module.exports = router;
