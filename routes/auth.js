@@ -1,6 +1,7 @@
 const express = require("express");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const ProfileInfo = require("../models/ProfileInfo"); 
 const { sendSms } = require("../services/smsService");
 
 const router = express.Router();
@@ -109,5 +110,87 @@ router.post("/resend-code", async (req, res) => {
     res.status(500).json({ message: "Sunucu hatası" });
   }
 });
+
+// PIN oluşturma
+router.post("/create-pin", async (req, res) => {
+  try {
+    const { phone, pin } = req.body;
+
+    if (!phone || !pin) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi" });
+    }
+
+    // bcrypt ile PIN hashle
+    const hashedPin = await bcrypt.hash(pin, 10);
+
+    const user = await User.findOneAndUpdate(
+      { phone },
+      { pin: hashedPin, pinCreated: true },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    res.json({ success: true, message: "PIN başarıyla oluşturuldu", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 📌 Profil tamamlama
+router.post("/complete-profile", async (req, res) => {
+  try {
+    const { phone, name, dob, tcNo, email, city, district } = req.body;
+
+    // Kullanıcıyı bul
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    // Profil daha önce oluşturulmuş mu kontrol et
+    let profile = await ProfileInfo.findOne({ userId: user._id });
+
+    if (profile) {
+      // Güncelle
+      profile.name = name;
+      profile.dob = dob;
+      profile.tcNo = tcNo;
+      profile.email = email;
+      profile.city = city;
+      profile.district = district;
+      await profile.save();
+    } else {
+      // Yeni oluştur
+      profile = new ProfileInfo({
+        userId: user._id,
+        name,
+        dob,
+        tcNo,
+        email,
+        city,
+        district,
+      });
+      await profile.save();
+    }
+
+    // User tablosunu güncelle → profil tamamlandı
+    user.profileCompleted = true;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Profil bilgileri kaydedildi",
+      profile,
+    });
+  } catch (err) {
+    console.error("❌ Profil kaydetme hatası:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 module.exports = router;
