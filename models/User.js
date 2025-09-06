@@ -7,9 +7,10 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
 
     // Kullanıcı durum alanları
-    verified: { type: Boolean, default: false },        // SMS doğrulandı mı?
-    pinCreated: { type: Boolean, default: false },      // 5 haneli şifre oluşturuldu mu?
-    profileCompleted: { type: Boolean, default: false },// Detaylı bilgiler girildi mi?
+    verified: { type: Boolean, default: false },         // SMS doğrulandı mı?
+    pinCreated: { type: Boolean, default: false },       // 5 haneli şifre oluşturuldu mu?
+    profileCompleted: { type: Boolean, default: false }, // Detaylı bilgiler girildi mi?
+    firstLoginCompleted: { type: Boolean, default: false }, // İlk kez ana sayfaya girdi mi?
 
     // SMS doğrulama alanları
     verificationCode: { type: String },   // 6 haneli kod
