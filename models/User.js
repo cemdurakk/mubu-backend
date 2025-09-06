@@ -5,6 +5,8 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: false }, // doğrulamadan önce boş olabilir
     phone: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    pin: { type: String }, // 👈 Hashlenmiş PIN burada saklanacak
+
 
     // Kullanıcı durum alanları
     verified: { type: Boolean, default: false },         // SMS doğrulandı mı?
