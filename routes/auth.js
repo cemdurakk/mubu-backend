@@ -3,11 +3,21 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const ProfileInfo = require("../models/ProfileInfo"); 
 const { sendSms } = require("../services/smsService");
+const jwt = require("jsonwebtoken");
+const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
 function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString(); // 6 haneli kod
+}
+
+function generateToken(user) {
+  return jwt.sign(
+    { userId: user._id, phone: user.phone },   // payload
+    process.env.JWT_SECRET,                    // secret key
+    { expiresIn: "7d" }                        // 7 gün geçerli
+  );
 }
 
 // 📌 Register endpoint
@@ -202,13 +212,15 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ status: "error", message: "Kullanıcı bulunamadı" });
     }
 
-    // Şifre doğrulama
+    if (user.firstLoginCompleted) {
+      return res.json({ status: "loginPin", message: "PIN ile giriş yapmalısınız" });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ status: "error", message: "Şifre hatalı" });
     }
 
-    // Kullanıcı durum kontrolü
     if (!user.verified) {
       return res.json({ status: "verify", message: "Doğrulama kodu gerekli" });
     }
@@ -219,18 +231,25 @@ router.post("/login", async (req, res) => {
       return res.json({ status: "profileInfo", message: "Profil bilgilerini doldurmanız gerekiyor" });
     }
 
-    // İlk login → DB güncelle
     if (!user.firstLoginCompleted) {
       user.firstLoginCompleted = true;
       await user.save();
     }
 
-    return res.json({ status: "home", message: "Giriş başarılı" });
+    const token = generateToken(user);
+
+    return res.json({
+      status: "home",
+      message: "Giriş başarılı",
+      token,
+      user: { phone: user.phone },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ status: "error", message: "Sunucu hatası" });
   }
 });
+
 
 // 📌 Login (PIN ile giriş)
 router.post("/login-pin", async (req, res) => {
@@ -247,12 +266,38 @@ router.post("/login-pin", async (req, res) => {
       return res.status(400).json({ status: "error", message: "PIN hatalı" });
     }
 
-    return res.json({ status: "home", message: "PIN ile giriş başarılı" });
+    const token = generateToken(user);
+
+    return res.json({
+      status: "home",
+      message: "PIN ile giriş başarılı",
+      token,
+      user: { phone: user.phone },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ status: "error", message: "Sunucu hatası" });
   }
 });
+
+// 📌 Token doğrulama
+router.get("/me", authMiddleware, async (req, res) => {
+  const user = await User.findById(req.user.userId);
+  if (!user) return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+
+  res.json({
+    success: true,
+    user: {
+      phone: user.phone,
+      verified: user.verified,
+      pinCreated: user.pinCreated,
+      profileCompleted: user.profileCompleted,
+      firstLoginCompleted: user.firstLoginCompleted,
+    },
+  });
+});
+
+
 
 
 module.exports = router;
