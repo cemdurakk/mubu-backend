@@ -162,7 +162,7 @@ router.post("/create-pin", async (req, res) => {
 // 📌 Profil tamamlama
 router.post("/complete-profile", async (req, res) => {
   try {
-    const { phone, name, dob, tcNo, email, city, district } = req.body;
+    const { phone, dob, tcNo, email, city, district } = req.body;
 
     // Kullanıcıyı bul
     const user = await User.findOne({ phone });
@@ -175,7 +175,7 @@ router.post("/complete-profile", async (req, res) => {
 
     if (profile) {
       // Güncelle
-      profile.name = name;
+      profile.name = profile.name || user.fullName; // ✅ name boşsa user.fullName kullan
       profile.dob = dob;
       profile.tcNo = tcNo;
       profile.email = email;
@@ -186,7 +186,7 @@ router.post("/complete-profile", async (req, res) => {
       // Yeni oluştur
       profile = new ProfileInfo({
         userId: user._id,
-        name,
+        name: user.fullName, // ✅ Flutter’dan gelmesini beklemiyoruz artık
         dob,
         tcNo,
         email,
@@ -210,6 +210,7 @@ router.post("/complete-profile", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 // 📌 Login (şifre ile giriş)
 router.post("/login", async (req, res) => {
