@@ -20,10 +20,10 @@ function generateToken(user) {
   );
 }
 
-// 📌 Register endpoint
+// 📌 Register endpoint (güncellenmiş)
 router.post("/register", async (req, res) => {
   try {
-    const { phone, password } = req.body;
+    const { phone, password, fullName } = req.body;  // fullName eklendi ✅
 
     let user = await User.findOne({ phone });
 
@@ -50,14 +50,23 @@ router.post("/register", async (req, res) => {
 
     await user.save();
 
+    // 📌 Aynı anda ProfileInfo dokümanı oluştur
+    const profile = new ProfileInfo({
+      userId: user._id,
+      name: fullName || "", // register'dan gelen ad-soyad
+    });
+    await profile.save();
+
+    // SMS gönder
     await sendSms(phone, `MUBU doğrulama kodunuz: ${code}`);
 
-    res.json({ message: "Kayıt başarılı, doğrulama kodu gönderildi" });
+    res.json({ message: "Kayıt başarılı, doğrulama kodu gönderildi", userId: user._id });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Sunucu hatası" });
   }
 });
+
 
 // 📌 Doğrulama endpoint
 router.post("/verify", async (req, res) => {
