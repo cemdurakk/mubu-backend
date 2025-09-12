@@ -7,6 +7,9 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     pin: { type: String }, // 👈 Hashlenmiş PIN burada saklanacak
 
+    // Güvenlik sorusu
+    securityQuestion: { type: String, required: false }, // sabit listeden seçilecek
+    securityAnswer: { type: String, required: false },   // bcrypt ile hashlenmiş cevap
 
     // Kullanıcı durum alanları
     verified: { type: Boolean, default: false },         // SMS doğrulandı mı?
