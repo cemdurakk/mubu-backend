@@ -14,9 +14,13 @@ function generateCode() {
 
 function generateToken(user) {
   return jwt.sign(
-    { userId: user._id, phone: user.phone },   // payload
-    process.env.JWT_SECRET,                    // secret key
-    { expiresIn: "7d" }                        // 7 gün geçerli
+    {
+      userId: user._id,
+      phone: user.phone,
+      deviceId: user.deviceId, // 📌 token içine cihaz ID'sini de gömüyoruz
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
   );
 }
 
