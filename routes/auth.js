@@ -370,19 +370,36 @@ router.post("/verify-device", async (req, res) => {
 
 // 📌 Token doğrulama
 router.get("/me", authMiddleware, async (req, res) => {
-  const user = await User.findById(req.user.userId);
-  if (!user) return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+  try {
+    const { deviceid } = req.headers; // frontend'den deviceId header olarak gelecek
+    const user = await User.findById(req.user.userId);
 
-  res.json({
-    success: true,
-    user: {
-      phone: user.phone,
-      verified: user.verified,
-      pinCreated: user.pinCreated,
-      profileCompleted: user.profileCompleted,
-      firstLoginCompleted: user.firstLoginCompleted,
-    },
-  });
+    if (!user) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
+
+    // 📌 Cihaz kontrolü
+    if (user.deviceId && user.deviceId !== deviceid) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Bu cihaz için oturum geçersiz. Lütfen yeniden giriş yapın." 
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        phone: user.phone,
+        verified: user.verified,
+        pinCreated: user.pinCreated,
+        profileCompleted: user.profileCompleted,
+        firstLoginCompleted: user.firstLoginCompleted,
+      },
+    });
+  } catch (err) {
+    console.error("❌ /me hatası:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 
