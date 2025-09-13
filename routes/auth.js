@@ -217,36 +217,51 @@ router.post("/complete-profile", async (req, res) => {
 // 📌 Login (şifre ile giriş)
 router.post("/login", async (req, res) => {
   try {
-    const { phone, password } = req.body;
+    const { phone, password, deviceId } = req.body;
     const user = await User.findOne({ phone });
 
     if (!user) {
       return res.status(400).json({ status: "error", message: "Kullanıcı bulunamadı" });
     }
 
-    if (user.firstLoginCompleted) {
-      return res.json({ status: "loginPin", message: "PIN ile giriş yapmalısınız" });
-    }
-
+    // ✅ Önce şifreyi kontrol et
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ status: "error", message: "Şifre hatalı" });
     }
 
+    // ✅ Cihaz kontrolü
+    if (user.deviceId && user.deviceId !== deviceId) {
+      return res.json({
+        status: "deviceVerification",
+        message: "Farklı cihazdan giriş yapılıyor. Doğrulama gerekli."
+      });
+    }
+
+    // ✅ Eğer verified değilse → verify ekranı
     if (!user.verified) {
       return res.json({ status: "verify", message: "Doğrulama kodu gerekli" });
     }
+
+    // ✅ Eğer PIN oluşturulmadıysa → createPin ekranı
     if (!user.pinCreated) {
       return res.json({ status: "createPin", message: "PIN oluşturmanız gerekiyor" });
     }
+
+    // ✅ Eğer profil tamamlanmadıysa → profileInfo ekranı
     if (!user.profileCompleted) {
       return res.json({ status: "profileInfo", message: "Profil bilgilerini doldurmanız gerekiyor" });
     }
 
-    if (!user.firstLoginCompleted) {
-      user.firstLoginCompleted = true;
-      await user.save();
+    // ✅ İlk login tamamlandıysa → PIN login
+    if (user.firstLoginCompleted) {
+      return res.json({ status: "loginPin", message: "PIN ile giriş yapmalısınız" });
     }
+
+    // ✅ İlk login değilse → direkt home
+    user.firstLoginCompleted = true;
+    user.deviceId = deviceId; // 📌 cihaz kaydedilir
+    await user.save();
 
     const token = generateToken(user);
 
@@ -256,11 +271,13 @@ router.post("/login", async (req, res) => {
       token,
       user: { phone: user.phone },
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ status: "error", message: "Sunucu hatası" });
   }
 });
+
 
 
 // 📌 Login (PIN ile giriş)
@@ -291,6 +308,65 @@ router.post("/login-pin", async (req, res) => {
     res.status(500).json({ status: "error", message: "Sunucu hatası" });
   }
 });
+
+// 📌 Cihaz doğrulama endpoint
+router.post("/verify-device", async (req, res) => {
+  try {
+    const { phone, deviceId, tcNo, dob, securityQuestion, securityAnswer } = req.body;
+
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    // Profil bilgilerini kontrol et
+    const profile = await ProfileInfo.findOne({ userId: user._id });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: "Profil bulunamadı" });
+    }
+
+    if (profile.tcNo !== tcNo) {
+      return res.status(400).json({ success: false, message: "TC Kimlik No hatalı" });
+    }
+
+    if (profile.dob !== dob) {
+      return res.status(400).json({ success: false, message: "Doğum tarihi hatalı" });
+    }
+
+    // Güvenlik sorusu & cevabı kontrol
+    if (user.securityQuestion !== securityQuestion) {
+      return res.status(400).json({ success: false, message: "Güvenlik sorusu hatalı" });
+    }
+
+    const isAnswerMatch = await bcrypt.compare(securityAnswer, user.securityAnswer || "");
+    if (!isAnswerMatch) {
+      return res.status(400).json({ success: false, message: "Güvenlik cevabı hatalı" });
+    }
+
+    // ✅ Doğruysa cihaz kaydet
+    user.deviceId = deviceId;
+    await user.save();
+
+    const token = generateToken(user);
+
+    return res.json({
+      success: true,
+      message: "Cihaz doğrulama başarılı, cihaz değiştirildi.",
+      token,
+      user: {
+        phone: user.phone,
+        verified: user.verified,
+        pinCreated: user.pinCreated,
+        profileCompleted: user.profileCompleted,
+        firstLoginCompleted: user.firstLoginCompleted,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Cihaz doğrulama hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
 
 // 📌 Token doğrulama
 router.get("/me", authMiddleware, async (req, res) => {
