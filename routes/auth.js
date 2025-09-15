@@ -17,12 +17,14 @@ function generateToken(user) {
     {
       userId: user._id,
       phone: user.phone,
-      deviceId: user.deviceId, // 📌 token içine cihaz ID'sini de gömüyoruz
+      role: user.role,       // ✅ rol bilgisi token’a eklendi
+      deviceId: user.deviceId,
     },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
 }
+
 
 // 📌 Register endpoint (güncellenmiş)
 router.post("/register", async (req, res) => {
