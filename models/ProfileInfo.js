@@ -14,6 +14,7 @@ const profileInfoSchema = new mongoose.Schema(
     email: { type: String },
     city: { type: String },
     district: { type: String },
+    avatar: { type: String, default: null }, // ✅ yeni alan
   },
   { timestamps: true }
 );
