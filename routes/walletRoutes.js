@@ -7,7 +7,6 @@ const Transaction = require("../models/Transaction"); // 📌 Transaction modeli
 const authMiddleware = require("../middleware/authMiddleware");
 const FakeCard = require("../models/FakeCard");
 const crypto = require("crypto");
-const { v4: uuidv4 } = require("uuid");
 
 // ✅ Random 6 haneli 3D Secure kodu üret
 function generate3DSCode() {
