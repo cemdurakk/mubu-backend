@@ -387,9 +387,11 @@ router.get("/me", authMiddleware, async (req, res) => {
       pinCreated: user.pinCreated,
       profileCompleted: user.profileCompleted,
       firstLoginCompleted: user.firstLoginCompleted,
+      role: user.role, // ✅ eklendi
     },
   });
 });
+
 
 
 
