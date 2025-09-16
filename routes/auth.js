@@ -382,6 +382,7 @@ router.get("/me", authMiddleware, async (req, res) => {
   res.json({
     success: true,
     user: {
+      _id: user._id,
       phone: user.phone,
       verified: user.verified,
       pinCreated: user.pinCreated,
