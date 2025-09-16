@@ -2,12 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const transactionRoutes = require("./routes/transactionRoutes");
+
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// MongoDB bağlantısı
+// ✅ MongoDB bağlantısı
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -15,14 +17,18 @@ mongoose.connect(process.env.MONGO_URI, {
 .then(() => console.log("MongoDB connected"))
 .catch(err => console.error(err));
 
-// Routes import
+// ✅ Routes import
 const authRoutes = require("./routes/auth");
 const smsRoutes = require("./routes/sms");
+const walletRoutes = require("./routes/walletRoutes"); // 👈 yeni ekledik
 
+// ✅ Routes use
 app.use("/api/auth", authRoutes);
 app.use("/api/sms", smsRoutes);
+app.use("/api/wallet", walletRoutes);
+app.use("/api/transactions", transactionRoutes); // 👈 yeni ekledik
 
-// Test endpoint
+// ✅ Test endpoint
 app.get("/", (req, res) => {
   res.send("MUBU Backend Çalışıyor 🚀");
 });
