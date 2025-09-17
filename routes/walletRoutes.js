@@ -78,7 +78,7 @@ router.post("/deposit", authMiddleware, async (req, res) => {
     }
 
     // 3D Secure kodu üret
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Session ID
     const sessionId = crypto.randomBytes(16).toString("hex");
@@ -137,17 +137,18 @@ router.post("/deposit/verify-3d", authMiddleware, async (req, res) => {
     wallet.balance += session.amount;
     await wallet.save();
 
-    // Transaction kaydı
-    const transaction = new Transaction({
-      userId: session.userId,
-      type: "deposit",
-      amount: session.amount,
-      description: `Kart ile ₺${session.amount} yüklendi`,
-      status: "success",
-      paymentMethod: "fake-card",
-      cardLast4: card.cardNumber.slice(-4),
-      secureVerified: true,
-    });
+// Transaction kaydı
+const transaction = new Transaction({
+  userId: session.userId,
+  type: "deposit",
+  amount: session.amount,
+  description: `Kart ile ₺${session.amount} yüklendi`,
+  status: "completed", // ✅ ENUM’da var olan değer
+  paymentMethod: "fake-card",
+  cardLast4: card.cardNumber.slice(-4),
+  secureVerified: true,
+});
+
     await transaction.save();
 
     // Kullanıldıktan sonra session sil
@@ -188,7 +189,8 @@ router.post("/update", authMiddleware, async (req, res) => {
 // ✅ Para çekme (fake withdraw)
 router.post("/withdraw", authMiddleware, async (req, res) => {
   try {
-    const { userId, amount } = req.body;
+    const { amount } = req.body;
+    const userId = req.user.userId;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ success: false, message: "Geçerli bir tutar giriniz" });
@@ -206,19 +208,20 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
 
     // Bakiyeden düş
     wallet.balance -= amount;
+    await wallet.save();
 
-    // Transaction oluştur
+    // Transaction kaydı
     const transaction = new Transaction({
-      type: "withdraw",
+      userId,
+      type: "withdraw", // ✅ işlem tipi
       amount,
-      from: wallet._id,
+      description: `Cüzdandan ₺${amount} çekildi`, // ✅ açıklama
+      status: "completed", // ✅ ENUM’dan izinli değer
+      paymentMethod: "wallet", // ✅ withdraw’da wallet diyelim
+      secureVerified: false,
     });
 
     await transaction.save();
-
-    // Wallet'a ilişkilendir
-    wallet.transactions.push(transaction._id);
-    await wallet.save();
 
     res.json({
       success: true,
@@ -231,6 +234,7 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 
 module.exports = router;

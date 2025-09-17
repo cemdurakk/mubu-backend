@@ -22,12 +22,17 @@ const transactionSchema = new mongoose.Schema(
     // Açıklama (ör: “Market harcaması”, “Cem’den Muzo’ya transfer”)
     description: { type: String, default: "" },
 
-    // İşlemin durumu (ileride ödeme altyapısı için lazım olacak)
+    // İşlemin durumu
     status: {
       type: String,
       enum: ["pending", "completed", "failed"],
       default: "completed",
     },
+
+    // 🔹 Ödeme bilgileri (opsiyonel, gerçek ödeme entegrasyonu için)
+    paymentMethod: { type: String, default: null }, // "fake-card", "wallet", "stripe", vs.
+    cardLast4: { type: String, default: null },     // son 4 hane
+    secureVerified: { type: Boolean, default: false }, // 3D Secure geçti mi?
 
     createdAt: { type: Date, default: Date.now },
   },
