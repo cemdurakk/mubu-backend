@@ -2,7 +2,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const ProfileInfo = require("../models/ProfileInfo"); 
-const { sendSms } = require("../services/smsService");
+const { sendSMS } = require("../services/smsService");
 const jwt = require("jsonwebtoken");
 const authMiddleware = require("../middleware/authMiddleware");
 
