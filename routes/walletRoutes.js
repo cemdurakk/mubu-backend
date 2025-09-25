@@ -72,9 +72,16 @@ router.post("/deposit", authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, message: "Kart bulunamadı" });
     }
 
-    if (card.expiryMonth !== expiryMonth || card.expiryYear !== expiryYear || card.cvv !== cvv) {
+    // 📌 Kart bilgilerini kontrol et
+    if (
+      card.expiryMonth !== expiryMonth ||
+      card.expiryYear !== expiryYear ||
+      card.cvv !== cvv ||
+      card.name.toLowerCase() !== req.body.cardName.toLowerCase() // ✅ isim kontrolü eklendi
+    ) {
       return res.status(400).json({ success: false, message: "Kart bilgileri hatalı" });
     }
+
 
     if (card.balance < amount) {
       return res.status(400).json({ success: false, message: "Kart bakiyesi yetersiz" });
