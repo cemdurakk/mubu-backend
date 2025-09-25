@@ -257,8 +257,14 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
     const cleanIban = iban.replace(/\s+/g, "").toUpperCase();
     const card = await FakeCard.findOne({
       iban: cleanIban,
-      ownerName: { $regex: new RegExp("^" + ownerName.trim() + "$", "i") } // case insensitive eşleşme
+      ownerName: { $regex: new RegExp("^" + ownerName.trim() + "$", "i") }
     });
+
+    // 🔍 Debug log ekle
+    console.log("DB OwnerName:", card?.ownerName);
+    console.log("Input OwnerName:", ownerName.trim());
+    console.log("DB IBAN:", card?.iban);
+    console.log("Input IBAN:", cleanIban);
 
     if (!card) {
       return res.status(400).json({ success: false, message: "IBAN veya isim hatalı" });
@@ -292,6 +298,7 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 
 
