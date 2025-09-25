@@ -233,21 +233,35 @@ router.post("/update", authMiddleware, async (req, res) => {
 // ✅ Para çekme (fake withdraw)
 router.post("/withdraw", authMiddleware, async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, iban, ownerName, walletId } = req.body;
     const userId = req.user.userId;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ success: false, message: "Geçerli bir tutar giriniz" });
     }
 
-    let wallet = await Wallet.findOne({ userId });
+    if (!iban || !ownerName) {
+      return res.status(400).json({ success: false, message: "IBAN ve Ad Soyad zorunludur" });
+    }
+
+    let wallet = await Wallet.findOne({ _id: walletId, userId });
     if (!wallet) {
       return res.status(404).json({ success: false, message: "Cüzdan bulunamadı" });
     }
 
-    // Bakiye kontrolü
     if (wallet.balance < amount) {
       return res.status(400).json({ success: false, message: "Yetersiz bakiye" });
+    }
+
+    // 📌 IBAN & Ad Soyad doğrulaması
+    const cleanIban = iban.replace(/\s+/g, "").toUpperCase();
+    const card = await FakeCard.findOne({
+      iban: cleanIban,
+      ownerName: { $regex: new RegExp("^" + ownerName.trim() + "$", "i") } // case insensitive eşleşme
+    });
+
+    if (!card) {
+      return res.status(400).json({ success: false, message: "IBAN veya isim hatalı" });
     }
 
     // Bakiyeden düş
@@ -257,14 +271,14 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
     // Transaction kaydı
     const transaction = new Transaction({
       userId,
-      type: "withdraw", // ✅ işlem tipi
+      walletId,
+      type: "withdraw",
       amount,
-      description: `Cüzdandan ₺${amount} çekildi`, // ✅ açıklama
-      status: "completed", // ✅ ENUM’dan izinli değer
-      paymentMethod: "wallet", // ✅ withdraw’da wallet diyelim
+      description: `IBAN ${cleanIban} için ₺${amount} çekildi`,
+      status: "completed",
+      paymentMethod: "iban",
       secureVerified: false,
     });
-
     await transaction.save();
 
     res.json({
@@ -278,6 +292,8 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+
 
 
 // ✅ Kullanıcının tüm cüzdanlarını getir
