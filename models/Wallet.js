@@ -10,8 +10,8 @@ const walletSchema = new mongoose.Schema(
     name: { type: String, required: true, default: "Cüzdanım" },
 
     // Bu cüzdana bağlı tüm işlemler
-    transactions: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "Transaction" }
+    notifications: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Notification" }
     ],
 
     createdAt: { type: Date, default: Date.now },
