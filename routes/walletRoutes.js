@@ -77,11 +77,10 @@ router.post("/deposit", authMiddleware, async (req, res) => {
       card.expiryMonth !== expiryMonth ||
       card.expiryYear !== expiryYear ||
       card.cvv !== cvv ||
-      card.name.toLowerCase() !== req.body.cardName.toLowerCase() // ✅ isim kontrolü eklendi
+      card.ownerName.toLowerCase() !== req.body.cardName.toLowerCase() // ✅ düzelttik
     ) {
       return res.status(400).json({ success: false, message: "Kart bilgileri hatalı" });
     }
-
 
     if (card.balance < amount) {
       return res.status(400).json({ success: false, message: "Kart bakiyesi yetersiz" });
