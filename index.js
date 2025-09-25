@@ -28,9 +28,9 @@ const profileRoutes = require("./routes/profile");// 👈 yeni ekledik
 app.use("/api/auth", authRoutes);
 app.use("/api/sms", smsRoutes);
 app.use("/api/wallet", walletRoutes);
-app.use("/api/transactions", transactionRoutes); 
 app.use("/api/profile", profileRoutes);
-app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // 👈 yeni ekledik
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // 👈 yeni ekledikapp.use("/api/transactions", require("./routes/transactionRoutes"));
+app.use("/api/transactions", require("./routes/transactionRoutes"));
 
 
 
