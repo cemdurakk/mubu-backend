@@ -1,23 +1,40 @@
+// C:\Users\yasar\mubu-backend\models\Notification.js
+
 const mongoose = require("mongoose");
+const moment = require("moment-timezone");
 
 const notificationSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Bildirimin sahibi
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-    type: { 
-      type: String, 
-      enum: ["transaction", "piggybank", "system"], // işlem, kumbara, sistem mesajı
-      required: true 
+    type: {
+      type: String,
+      enum: ["deposit", "withdraw", "transfer", "spend", "piggybank_create"], 
+      required: true,
     },
 
-    title: { type: String, required: true },   // Kısa başlık (örn: "Para Yatırma Başarılı")
-    message: { type: String, required: true }, // Detaylı açıklama
+    amount: { type: Number, required: true },
 
-    relatedId: { type: mongoose.Schema.Types.ObjectId, default: null }, 
-    // İlgili işlem veya kumbara (örn: TransactionId veya PiggyBankId)
+    from: { type: mongoose.Schema.Types.ObjectId, ref: "Wallet", default: null },
+    to: { type: mongoose.Schema.Types.ObjectId, ref: "Wallet", default: null },
 
-    isRead: { type: Boolean, default: false }, // Kullanıcı gördü mü?
-    createdAt: { type: Date, default: Date.now }
+    description: { type: String, default: "" },
+
+    status: {
+      type: String,
+      enum: ["pending", "completed", "failed"],
+      default: "completed",
+    },
+
+    paymentMethod: { type: String, default: null },
+    cardLast4: { type: String, default: null },
+    secureVerified: { type: Boolean, default: false }, // ✅ bunu da ekledim
+
+    // 🔹 Türkiye saatine göre createdAt
+    createdAt: {
+      type: Date,
+      default: () => moment().tz("Europe/Istanbul").toDate(),
+    },
   },
   { timestamps: true }
 );

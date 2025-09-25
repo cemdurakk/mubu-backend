@@ -3,12 +3,11 @@
 const express = require("express");
 const router = express.Router();
 const Wallet = require("../models/Wallet");
-const Transaction = require("../models/Transaction"); // 📌 Transaction modelini dahil et
+const Notification = require("../models/Notification"); // 📌 Transaction yerine Notification
 const authMiddleware = require("../middleware/authMiddleware");
 const FakeCard = require("../models/FakeCard");
 const crypto = require("crypto");
 const { sendSMS } = require("../services/smsService");
-
 
 // ✅ Random 6 haneli 3D Secure kodu üret
 function generate3DSCode() {
@@ -77,7 +76,7 @@ router.post("/deposit", authMiddleware, async (req, res) => {
       card.expiryMonth !== expiryMonth ||
       card.expiryYear !== expiryYear ||
       card.cvv !== cvv ||
-      card.ownerName.toLowerCase() !== req.body.cardName.toLowerCase() // ✅ düzelttik
+      card.ownerName.toLowerCase() !== req.body.cardName.toLowerCase()
     ) {
       return res.status(400).json({ success: false, message: "Kart bilgileri hatalı" });
     }
@@ -99,7 +98,7 @@ router.post("/deposit", authMiddleware, async (req, res) => {
       wallet.balance += amount;
       await wallet.save();
 
-      const transaction = new Transaction({
+      const notification = new Notification({
         userId,
         walletId,
         type: "deposit",
@@ -110,13 +109,13 @@ router.post("/deposit", authMiddleware, async (req, res) => {
         cardLast4: card.cardNumber.slice(-4),
         secureVerified: false,
       });
-      await transaction.save();
+      await notification.save();
 
       return res.json({
         success: true,
         message: "Para yükleme başarılı",
         wallet,
-        transaction,
+        notification,
         requires3DSecure: false,
       });
     }
@@ -150,8 +149,6 @@ router.post("/deposit", authMiddleware, async (req, res) => {
   }
 });
 
-
-
 // ✅ 3D Secure doğrulama endpoint
 router.post("/deposit/verify-3d", authMiddleware, async (req, res) => {
   try {
@@ -182,18 +179,18 @@ router.post("/deposit/verify-3d", authMiddleware, async (req, res) => {
     wallet.balance += session.amount;
     await wallet.save();
 
-    const transaction = new Transaction({
+    const notification = new Notification({
       userId: session.userId,
       walletId: session.walletId,
       type: "deposit",
       amount: session.amount,
-      description: `${card.ownerName} kişisinin kartından ₺${amount} yüklendi`,
+      description: `${card.ownerName} kişisinin kartından ₺${session.amount} yüklendi`,
       status: "completed",
       paymentMethod: "fake-card",
       cardLast4: card.cardNumber.slice(-4),
       secureVerified: true,
     });
-    await transaction.save();
+    await notification.save();
 
     delete pending3DSessions[sessionId];
 
@@ -201,14 +198,13 @@ router.post("/deposit/verify-3d", authMiddleware, async (req, res) => {
       success: true,
       message: "Para yükleme başarılı",
       wallet,
-      transaction,
+      notification,
     });
   } catch (err) {
     console.error("❌ 3D doğrulama hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
-
 
 // ✅ Cüzdan güncelle (manuel update için, gerekirse)
 router.post("/update", authMiddleware, async (req, res) => {
@@ -257,14 +253,8 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
     const cleanIban = iban.replace(/\s+/g, "").toUpperCase();
     const card = await FakeCard.findOne({
       iban: cleanIban,
-      ownerName: { $regex: new RegExp("^" + ownerName.trim() + "$", "i") }
+      ownerName: { $regex: new RegExp("^" + ownerName.trim() + "$", "i") },
     });
-
-    // 🔍 Debug log ekle
-    console.log("DB OwnerName:", card?.ownerName);
-    console.log("Input OwnerName:", ownerName.trim());
-    console.log("DB IBAN:", card?.iban);
-    console.log("Input IBAN:", cleanIban);
 
     if (!card) {
       return res.status(400).json({ success: false, message: "IBAN veya isim hatalı" });
@@ -278,8 +268,8 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
     card.balance += amount;
     await card.save();
 
-    // Transaction kaydı
-    const transaction = new Transaction({
+    // Notification kaydı
+    const notification = new Notification({
       userId,
       walletId,
       type: "withdraw",
@@ -289,23 +279,19 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
       paymentMethod: "iban",
       secureVerified: false,
     });
-    await transaction.save();
+    await notification.save();
 
     res.json({
       success: true,
       message: `${amount} TL cüzdandan çekildi`,
       wallet,
-      transaction,
+      notification,
     });
   } catch (err) {
     console.error("❌ Withdraw error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-
-
-
 
 // ✅ Kullanıcının tüm cüzdanlarını getir
 router.get("/", authMiddleware, async (req, res) => {
@@ -319,10 +305,10 @@ router.get("/", authMiddleware, async (req, res) => {
     }
 
     // Sadece gerekli alanları döndür
-    const formattedWallets = wallets.map(w => ({
+    const formattedWallets = wallets.map((w) => ({
       _id: w._id,
       name: w.name,
-      balance: w.balance
+      balance: w.balance,
     }));
 
     res.json({ success: true, wallets: formattedWallets });
@@ -331,7 +317,5 @@ router.get("/", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-
 
 module.exports = router;
