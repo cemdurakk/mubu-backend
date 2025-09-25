@@ -64,7 +64,7 @@ router.post("/register", async (req, res) => {
     await profile.save();
 
     // SMS gönder
-    await sendSms(phone, `MUBU doğrulama kodunuz: ${code}`);
+    await sendSMS(phone, `MUBU doğrulama kodunuz: ${code}`);
 
     res.json({ message: "Kayıt başarılı, doğrulama kodu gönderildi", userId: user._id });
   } catch (err) {
@@ -127,7 +127,7 @@ router.post("/resend-code", async (req, res) => {
     user.verificationExpires = Date.now() + 5 * 60 * 1000;
     await user.save();
 
-    await sendSms(phone, `MUBU yeni doğrulama kodunuz: ${code}`);
+    await sendSMS(phone, `MUBU yeni doğrulama kodunuz: ${code}`);
 
     res.json({ message: "Yeni doğrulama kodu gönderildi" });
   } catch (err) {
