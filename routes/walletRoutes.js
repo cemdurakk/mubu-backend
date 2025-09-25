@@ -270,9 +270,13 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: "IBAN veya isim hatalı" });
     }
 
-    // Bakiyeden düş
+    // 1️⃣ Kullanıcının cüzdanından düş
     wallet.balance -= amount;
     await wallet.save();
+
+    // 2️⃣ IBAN sahibinin kart bakiyesine ekle
+    card.balance += amount;
+    await card.save();
 
     // Transaction kaydı
     const transaction = new Transaction({
