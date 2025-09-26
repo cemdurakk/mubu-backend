@@ -8,7 +8,11 @@ const SubWallet = require("../models/SubWallet");
 router.post("/create", authMiddleware, async (req, res) => {
   try {
     const { subWalletId, type, name, targetAmount, category, color } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id; // ✅ güvenli şekilde al
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Kullanıcı bulunamadı" });
+    }
 
     let subWallet;
 
