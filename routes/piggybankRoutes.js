@@ -63,6 +63,31 @@ router.post("/create", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Kullanıcının tüm kumbaralarını getir
+router.get("/all", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const subWallets = await SubWallet.find({ participants: userId }).populate("piggyBanks");
+
+    let piggyBanks = [];
+    subWallets.forEach(sw => {
+      piggyBanks = piggyBanks.concat(sw.piggyBanks);
+    });
+
+    piggyBanks.sort((a, b) => b.createdAt - a.createdAt);
+
+    return res.status(200).json({
+      success: true,
+      piggyBanks,
+    });
+  } catch (err) {
+    console.error("❌ Tüm kumbaraları listeleme hatası:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+
 // ✅ Belirli bir SubWallet’ın kumbaralarını listele
 router.get("/:subWalletId", authMiddleware, async (req, res) => {
   try {
