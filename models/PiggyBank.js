@@ -1,62 +1,28 @@
 const mongoose = require("mongoose");
 
-const PiggyBankSchema = new mongoose.Schema(
+const piggyBankSchema = new mongoose.Schema(
   {
-    // Hangi alt cüzdana bağlı
-    subWalletId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "SubWallet",
-      required: true,
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Kumbara sahibini tutar
+    walletId: { type: mongoose.Schema.Types.ObjectId, ref: "Wallet", required: true }, // Hangi cüzdana bağlı
+
+    name: { type: String, required: true }, // Kumbara adı (ör: Kahve, Alışveriş)
+    type: { 
+      type: String, 
+      enum: ["individual", "shared", "goal"], // bireysel, ortak, hedef odaklı
+      default: "individual" 
     },
 
-    // Kumbara adı
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    balance: { type: Number, default: 0 }, // Kumbara içindeki mevcut para
+    targetAmount: { type: Number, default: 0 }, // Hedef tutar (goal kumbara için)
 
-    // Hedef tutar (kullanıcı belirler)
-    targetAmount: {
-      type: Number,
-      default: 0,
-    },
+    color: { type: String, default: "#7B3EFF" }, // UI için renk kodu
+    category: { type: String, default: "general" }, // UI için kategori
 
-    // Şu anki biriken miktar
-    currentAmount: {
-      type: Number,
-      default: 0,
-    },
+    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // ortak kumbaralarda diğer kullanıcılar
 
-    // Kategori (değişken, kullanıcı veya sistemden seçilecek)
-    category: {
-      type: String,
-      default: null,
-    },
-
-    // Renk kodu (ör: #FF5733 veya hazır renk isimleri)
-    color: {
-      type: String,
-      default: "#7E57C2", // mor default olabilir
-    },
-
-    // Katılımcılar (özellikle ortak & birikim için)
-    participants: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
-
-    // Davet edilen ama henüz kabul etmemiş kullanıcılar
-    invitations: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    createdAt: { type: Date, default: Date.now }
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("PiggyBank", PiggyBankSchema);
+module.exports = mongoose.model("PiggyBank", piggyBankSchema);
