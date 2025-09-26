@@ -7,18 +7,37 @@ const SubWallet = require("../models/SubWallet");
 // ✅ Yeni kumbara oluştur
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    const { subWalletId, name, targetAmount, category, color } = req.body;
+    const { subWalletId, type, name, targetAmount, category, color } = req.body;
     const userId = req.user.id;
 
-    // İlgili SubWallet var mı kontrol et
-    const subWallet = await SubWallet.findById(subWalletId);
-    if (!subWallet) {
-      return res.status(404).json({ success: false, error: "SubWallet bulunamadı" });
+    let subWallet;
+
+    if (subWalletId) {
+      // Eğer subWalletId gönderildiyse → direkt kullan
+      subWallet = await SubWallet.findById(subWalletId);
+      if (!subWallet) {
+        return res.status(404).json({ success: false, error: "SubWallet bulunamadı" });
+      }
+    } else if (type) {
+      // Eğer type gönderildiyse → önce o kullanıcıya ait SubWallet var mı kontrol et
+      subWallet = await SubWallet.findOne({ userId, type });
+
+      // Yoksa yeni SubWallet oluştur
+      if (!subWallet) {
+        subWallet = new SubWallet({
+          userId,
+          type,
+          participants: [userId],
+        });
+        await subWallet.save();
+      }
+    } else {
+      return res.status(400).json({ success: false, error: "subWalletId veya type gerekli" });
     }
 
-    // Kumbara oluştur
+    // ✅ Yeni kumbara oluştur
     const piggyBank = new PiggyBank({
-      subWalletId,
+      subWalletId: subWallet._id,
       name,
       targetAmount,
       category,
@@ -28,7 +47,7 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     await piggyBank.save();
 
-    // SubWallet içine ekle
+    // ✅ SubWallet içine ekle
     subWallet.piggyBanks.push(piggyBank._id);
     await subWallet.save();
 
@@ -36,6 +55,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       success: true,
       message: "Kumbara başarıyla oluşturuldu",
       piggyBank,
+      subWallet, // hangi subWallet altında oluşturulduğunu da döndürelim
     });
   } catch (err) {
     console.error("❌ Kumbara oluşturma hatası:", err);
