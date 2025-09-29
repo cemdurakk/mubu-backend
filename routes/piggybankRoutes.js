@@ -61,22 +61,25 @@ router.get("/all", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
 
+    // Kullanıcının bulunduğu tüm subWallet’ları getiriyoruz
     const subWallets = await SubWallet.find({ participants: userId }).populate("piggyBanks");
 
+    // Tüm kumbaraları birleştir
     let piggyBanks = [];
-    let usedBalance = 0;
-
     subWallets.forEach(sw => {
-      sw.piggyBanks.forEach(pb => {
-        piggyBanks.push(pb);
-        usedBalance += pb.currentAmount || 0; // 🔹 ayrılmış para
-      });
+      piggyBanks = piggyBanks.concat(sw.piggyBanks);
     });
+
+    // 🔹 usedBalance hesapla (mevcut tüm piggyBank currentAmount toplamı)
+    const usedBalance = piggyBanks.reduce((sum, pb) => sum + (pb.currentAmount || 0), 0);
+
+    // Tarihe göre sırala (son eklenenler önce gelsin)
+    piggyBanks.sort((a, b) => b.createdAt - a.createdAt);
 
     return res.status(200).json({
       success: true,
       piggyBanks,
-      usedBalance, // 🔹 toplam ayrılan para
+      usedBalance, // ✅ eklendi
     });
   } catch (err) {
     console.error("❌ Tüm kumbaraları listeleme hatası:", err);
