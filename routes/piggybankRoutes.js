@@ -9,16 +9,14 @@ const SubWallet = require("../models/SubWallet");
 router.post("/create", authMiddleware, async (req, res) => {
   try {
     const { type, name, targetAmount, category, color } = req.body;
-    const userId = req.user.userId; // ✅ doğru alan bu
+    const userId = req.user.userId;
 
     if (!type) {
       return res.status(400).json({ success: false, error: "Kumbara türü (type) gerekli" });
     }
 
-    // 🔹 Kullanıcıya ait ilgili SubWallet var mı kontrol et
+    // Kullanıcının subWallet’ını bul/oluştur
     let subWallet = await SubWallet.findOne({ userId, type });
-
-    // 🔹 Yoksa yeni oluştur
     if (!subWallet) {
       subWallet = new SubWallet({
         userId,
@@ -29,18 +27,19 @@ router.post("/create", authMiddleware, async (req, res) => {
       await subWallet.save();
     }
 
-    // 🔹 Yeni kumbara oluştur
+    // Yeni kumbara oluştur (parayı direkt içine atıyoruz)
     const piggyBank = new PiggyBank({
       subWalletId: subWallet._id,
       name,
-      targetAmount,
+      targetAmount,             // kullanıcı belirlediği miktar
+      currentAmount: targetAmount, // ✅ direkt içine eklendi
       category,
       color,
       participants: [userId],
     });
     await piggyBank.save();
 
-    // 🔹 SubWallet içine ekle
+    // SubWallet’a ekle
     subWallet.piggyBanks.push(piggyBank._id);
     await subWallet.save();
 
@@ -48,7 +47,6 @@ router.post("/create", authMiddleware, async (req, res) => {
       success: true,
       message: "Kumbara başarıyla oluşturuldu",
       piggyBank,
-      subWallet,
     });
   } catch (err) {
     console.error("❌ Kumbara oluşturma hatası:", err);
@@ -61,33 +59,31 @@ router.post("/create", authMiddleware, async (req, res) => {
 // ✅ Kullanıcının tüm kumbaralarını getir
 router.get("/all", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.userId;  // ✅ düzeltildi
+    const userId = req.user.userId;
 
-    // Kullanıcının bulunduğu tüm subWallet’ları getiriyoruz
     const subWallets = await SubWallet.find({ participants: userId }).populate("piggyBanks");
 
-    // Tüm kumbaraları birleştir
     let piggyBanks = [];
+    let usedBalance = 0;
+
     subWallets.forEach(sw => {
-      piggyBanks = piggyBanks.concat(sw.piggyBanks);
+      sw.piggyBanks.forEach(pb => {
+        piggyBanks.push(pb);
+        usedBalance += pb.currentAmount || 0; // 🔹 ayrılmış para
+      });
     });
-
-    // 🔹 Kullanılan toplam bakiyeyi hesapla
-    const usedBalance = piggyBanks.reduce((sum, p) => sum + (p.targetAmount || 0), 0);
-
-    // Tarihe göre sırala (son eklenenler önce gelsin)
-    piggyBanks.sort((a, b) => b.createdAt - a.createdAt);
 
     return res.status(200).json({
       success: true,
       piggyBanks,
-      usedBalance,   // ✅ eklendi
+      usedBalance, // 🔹 toplam ayrılan para
     });
   } catch (err) {
     console.error("❌ Tüm kumbaraları listeleme hatası:", err);
     return res.status(500).json({ success: false, error: "Server error" });
   }
 });
+
 
 
 
