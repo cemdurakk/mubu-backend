@@ -5,6 +5,7 @@ const ProfileInfo = require("../models/ProfileInfo");
 const { sendSMS } = require("../services/smsService");
 const jwt = require("jsonwebtoken");
 const authMiddleware = require("../middleware/authMiddleware");
+const Wallet = require("../models/Wallet");
 
 const router = express.Router();
 
@@ -56,12 +57,21 @@ router.post("/register", async (req, res) => {
 
     await user.save();
 
+    // 📌 Kullanıcı için cüzdan oluştur
+    const wallet = new Wallet({
+      userId: user._id,
+      balance: 0,
+      name: "Cüzdanım",
+    });
+    await wallet.save();
+
     // 📌 Aynı anda ProfileInfo dokümanı oluştur
     const profile = new ProfileInfo({
       userId: user._id,
-      name: fullName || "", // register'dan gelen ad-soyad
+      name: fullName || "",
     });
     await profile.save();
+
 
     // SMS gönder
     await sendSMS(phone, `MUBU doğrulama kodunuz: ${code}`);
