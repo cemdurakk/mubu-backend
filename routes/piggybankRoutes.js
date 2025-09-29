@@ -61,7 +61,7 @@ router.post("/create", authMiddleware, async (req, res) => {
 // ✅ Kullanıcının tüm kumbaralarını getir
 router.get("/all", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;  // ✅ düzeltildi
 
     // Kullanıcının bulunduğu tüm subWallet’ları getiriyoruz
     const subWallets = await SubWallet.find({ participants: userId }).populate("piggyBanks");
@@ -84,6 +84,7 @@ router.get("/all", authMiddleware, async (req, res) => {
     return res.status(500).json({ success: false, error: "Server error" });
   }
 });
+
 
 
 // ✅ Belirli bir SubWallet’ın kumbaralarını getir
