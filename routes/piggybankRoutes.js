@@ -9,7 +9,7 @@ const SubWallet = require("../models/SubWallet");
 router.post("/create", authMiddleware, async (req, res) => {
   try {
     const { type, name, targetAmount, category, color } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId; // ✅ doğru alan bu
 
     if (!type) {
       return res.status(400).json({ success: false, error: "Kumbara türü (type) gerekli" });
