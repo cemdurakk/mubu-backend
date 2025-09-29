@@ -318,4 +318,30 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
+
+// ✅ Aktif kullanıcının cüzdanını getir (frontend /me için)
+router.get("/me", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const wallet = await Wallet.findOne({ userId });
+    if (!wallet) {
+      return res.status(404).json({ success: false, message: "Cüzdan bulunamadı" });
+    }
+
+    res.json({
+      success: true,
+      wallet: {
+        _id: wallet._id,
+        name: wallet.name,
+        balance: wallet.balance,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Wallet /me error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
 module.exports = router;

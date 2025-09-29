@@ -59,9 +59,9 @@ router.post("/create", authMiddleware, async (req, res) => {
 // ✅ Kullanıcının tüm kumbaralarını getir
 router.get("/all", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.userId;  // ✅ doğru alan
 
-    // Kullanıcının bulunduğu tüm subWallet’ları getiriyoruz
+    // Kullanıcının bulunduğu tüm subWallet’ları getir
     const subWallets = await SubWallet.find({ participants: userId }).populate("piggyBanks");
 
     // Tüm kumbaraları birleştir
@@ -70,8 +70,8 @@ router.get("/all", authMiddleware, async (req, res) => {
       piggyBanks = piggyBanks.concat(sw.piggyBanks);
     });
 
-    // 🔹 usedBalance hesapla (mevcut tüm piggyBank currentAmount toplamı)
-    const usedBalance = piggyBanks.reduce((sum, pb) => sum + (pb.currentAmount || 0), 0);
+    // Kullanılan toplam bakiye (targetAmount’ların toplamı)
+    const usedBalance = piggyBanks.reduce((sum, p) => sum + (p.targetAmount || 0), 0);
 
     // Tarihe göre sırala (son eklenenler önce gelsin)
     piggyBanks.sort((a, b) => b.createdAt - a.createdAt);
