@@ -16,6 +16,31 @@ function generate3DSCode() {
 
 let pending3DSessions = {};
 
+// ✅ Kullanıcının kendi cüzdanını getir (token’dan userId alarak)
+router.get("/me", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const wallet = await Wallet.findOne({ userId });
+    if (!wallet) {
+      return res.status(404).json({ success: false, message: "Cüzdan bulunamadı" });
+    }
+
+    res.json({
+      success: true,
+      wallet: {
+        _id: wallet._id,
+        name: wallet.name,
+        balance: wallet.balance,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Wallet /me error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
 // ✅ Kullanıcının cüzdanını getir
 router.get("/:userId", authMiddleware, async (req, res) => {
   try {
@@ -314,31 +339,6 @@ router.get("/", authMiddleware, async (req, res) => {
     res.json({ success: true, wallets: formattedWallets });
   } catch (err) {
     console.error("❌ Wallets get error:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-// ✅ Aktif kullanıcının cüzdanını getir (frontend /me için)
-router.get("/me", authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-
-    const wallet = await Wallet.findOne({ userId });
-    if (!wallet) {
-      return res.status(404).json({ success: false, message: "Cüzdan bulunamadı" });
-    }
-
-    res.json({
-      success: true,
-      wallet: {
-        _id: wallet._id,
-        name: wallet.name,
-        balance: wallet.balance,
-      },
-    });
-  } catch (err) {
-    console.error("❌ Wallet /me error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
