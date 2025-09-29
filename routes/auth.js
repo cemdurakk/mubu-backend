@@ -72,16 +72,25 @@ router.post("/register", async (req, res) => {
     });
     await profile.save();
 
-
     // SMS gönder
     await sendSMS(phone, `MUBU doğrulama kodunuz: ${code}`);
 
-    res.json({ message: "Kayıt başarılı, doğrulama kodu gönderildi", userId: user._id });
+    // 📌 Token üret ve döndür
+    const token = generateToken(user);
+
+    res.json({
+      success: true,
+      message: "Kayıt başarılı, doğrulama kodu gönderildi",
+      userId: user._id,
+      token,   // ✅ token artık burada
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error("❌ Register error:", err);
     res.status(500).json({ message: "Sunucu hatası" });
   }
 });
+
 
 
 // 📌 Doğrulama endpoint
