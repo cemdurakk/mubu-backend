@@ -26,11 +26,22 @@ function generateToken(user) {
   );
 }
 
+async function generateUniqueInviteID() {
+  let inviteID;
+  let exists = true;
+  while (exists) {
+    inviteID = "#" + Math.floor(100000000 + Math.random() * 900000000);
+    exists = await User.exists({ inviteID });
+  }
+  return inviteID;
+}
+
+
 
 // 📌 Register endpoint (güncellenmiş)
 router.post("/register", async (req, res) => {
   try {
-    const { phone, password, fullName } = req.body;  // fullName eklendi ✅
+    const { phone, password, fullName } = req.body;
 
     let user = await User.findOne({ phone });
 
@@ -53,6 +64,7 @@ router.post("/register", async (req, res) => {
       verified: false,
       verificationCode: code,
       verificationExpires: Date.now() + 5 * 60 * 1000, // 5 dakika
+      inviteID: await generateUniqueInviteID(), // 👈 burada ID üretiliyor
     });
 
     await user.save();

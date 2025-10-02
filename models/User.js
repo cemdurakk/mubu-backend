@@ -29,6 +29,9 @@ const userSchema = new mongoose.Schema(
     firstLoginCompleted: { type: Boolean, default: false }, // İlk kez ana sayfaya girdi mi?
     deviceId: { type: String, default: null },           // Kullanıcının kayıtlı cihaz kimliği
 
+    inviteID: { type: String, unique: true }, // Kullanıcıya özel davet kodu (#123456789)
+
+
     // Abonelik (ebeveyn paketi için)
     subscriptionActive: { type: Boolean, default: false }, 
 
