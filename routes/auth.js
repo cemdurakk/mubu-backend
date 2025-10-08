@@ -405,23 +405,33 @@ router.post("/verify-device", async (req, res) => {
 });
 
 
-// 📌 Token doğrulama
 router.get("/me", authMiddleware, async (req, res) => {
-  const user = await User.findById(req.user.userId);
-  if (!user) return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
 
-  res.json({
-    success: true,
-    user: {
-      _id: user._id,
-      phone: user.phone,
-      verified: user.verified,
-      pinCreated: user.pinCreated,
-      profileCompleted: user.profileCompleted,
-      firstLoginCompleted: user.firstLoginCompleted,
-      role: user.role, // ✅ eklendi
-    },
-  });
+    // ProfileInfo tablosundan ek bilgileri çek
+    const profile = await ProfileInfo.findOne({ userId: user._id });
+
+    res.json({
+      success: true,
+      user: {
+        _id: user._id,
+        phone: user.phone,
+        name: profile ? profile.name : user.name,
+        inviteID: user.inviteID,
+        role: user.role,
+        verified: user.verified,
+        pinCreated: user.pinCreated,
+        profileCompleted: user.profileCompleted,
+        firstLoginCompleted: user.firstLoginCompleted,
+        avatar: profile?.avatar || null,
+      },
+    });
+  } catch (err) {
+    console.error("❌ /me endpoint error:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
 });
 
 
