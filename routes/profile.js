@@ -39,33 +39,6 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Profil güncelleme
-router.put("/", authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { name, email, dob, city, district, school } = req.body;
-
-    let profile = await ProfileInfo.findOne({ userId });
-
-    if (!profile) {
-      profile = new ProfileInfo({ userId });
-    }
-
-    profile.name = name || profile.name;
-    profile.email = email || profile.email;
-    profile.dob = dob || profile.dob;
-    profile.city = city || profile.city;
-    profile.district = district || profile.district;
-    profile.school = school || profile.school;
-
-    await profile.save();
-
-    res.json({ success: true, message: "Profil güncellendi", profile });
-  } catch (err) {
-    console.error("❌ Profil güncelleme hatası:", err);
-    res.status(500).json({ success: false, message: "Sunucu hatası" });
-  }
-});
 
 // ✅ Cloudinary storage
 const storage = new CloudinaryStorage({
