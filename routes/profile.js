@@ -7,30 +7,40 @@ const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("../services/cloudinary");
 
-// ✅ Profil getirme (kullanıcı kendi profiline erişir)
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
-
-    const profile = await ProfileInfo.findOne({ userId });
     const user = await User.findById(userId);
-
     if (!user) {
       return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    // ProfileInfo kaydı yoksa otomatik oluştur
+    let profile = await ProfileInfo.findOne({ userId });
+    if (!profile) {
+      profile = new ProfileInfo({
+        userId,
+        name: user.name || "",
+        email: "",
+        dob: "",
+        city: "",
+        district: "",
+        avatar: "",
+      });
+      await profile.save();
     }
 
     res.json({
       success: true,
       profile: {
-        name: profile?.name || user.name,
-        email: profile?.email || null,
-        dob: profile?.dob || null,
-        phone: user.phone,
-        city: profile?.city || null,
-        district: profile?.district || null,
-        school: profile?.school || null,
-        avatar: profile?.avatar || null,
-        inviteID: user.inviteID,
+        name: profile.name || user.name || "",
+        email: profile.email || "",
+        dob: profile.dob || "",
+        phone: user.phone || "",
+        city: profile.city || "",
+        district: profile.district || "",
+        inviteID: user.inviteID || "",
+        avatar: profile.avatar || "",
       },
     });
   } catch (err) {
@@ -38,6 +48,7 @@ router.get("/", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
+
 
 
 // ✅ Cloudinary storage
