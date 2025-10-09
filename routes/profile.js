@@ -154,17 +154,25 @@ router.put("/change-password", authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
     }
 
-    // 🔒 Eski parolayı kontrol et
+    // 🔒 Eski parola doğru mu
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
       return res.status(400).json({ success: false, message: "Mevcut parola hatalı" });
     }
 
-    // 🔐 Yeni parolayı hashle
+    // 🚫 Eski ve yeni parola aynı olamaz
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Yeni parola, mevcut parolanız ile aynı olamaz",
+      });
+    }
+
+    // 🔐 Yeni parola hashleniyor
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(newPassword, salt);
     user.password = hashed;
-
     await user.save();
 
     res.json({ success: true, message: "Parola başarıyla güncellendi" });
