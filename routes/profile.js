@@ -6,6 +6,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("../services/cloudinary");
+const bcrypt = require("bcryptjs");
 
 router.get("/", authMiddleware, async (req, res) => {
   try {
@@ -141,21 +142,36 @@ router.delete("/avatar", authMiddleware, async (req, res) => {
   }
 });
 
+
+// 🔹 Parola değiştirme
 router.put("/change-password", authMiddleware, async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
-  const user = await User.findById(req.user.userId);
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.user.userId;
 
-  if (!user) return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
 
-  const isMatch = await bcrypt.compare(oldPassword, user.password);
-  if (!isMatch)
-    return res.status(400).json({ success: false, message: "Mevcut parola hatalı" });
+    // 🔒 Eski parolayı kontrol et
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Mevcut parola hatalı" });
+    }
 
-  const salt = await bcrypt.genSalt(10);
-  user.password = await bcrypt.hash(newPassword, salt);
-  await user.save();
+    // 🔐 Yeni parolayı hashle
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(newPassword, salt);
+    user.password = hashed;
 
-  res.json({ success: true, message: "Parola başarıyla güncellendi" });
+    await user.save();
+
+    res.json({ success: true, message: "Parola başarıyla güncellendi" });
+  } catch (err) {
+    console.error("❌ Change password error:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
 });
 
 
