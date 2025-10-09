@@ -141,5 +141,23 @@ router.delete("/avatar", authMiddleware, async (req, res) => {
   }
 });
 
+router.put("/change-password", authMiddleware, async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const user = await User.findById(req.user.userId);
+
+  if (!user) return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+
+  const isMatch = await bcrypt.compare(oldPassword, user.password);
+  if (!isMatch)
+    return res.status(400).json({ success: false, message: "Mevcut parola hatalı" });
+
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(newPassword, salt);
+  await user.save();
+
+  res.json({ success: true, message: "Parola başarıyla güncellendi" });
+});
+
+
 
 module.exports = router;
