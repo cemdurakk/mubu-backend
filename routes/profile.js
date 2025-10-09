@@ -118,4 +118,28 @@ router.post("/avatar", authMiddleware, upload.single("avatar"), async (req, res)
   }
 });
 
+
+// routes/profile.js içinde
+router.delete("/avatar", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const profile = await ProfileInfo.findOne({ userId });
+
+    if (!profile) return res.status(404).json({ success: false, message: "Profil bulunamadı" });
+
+    // Cloudinary’den silmek istersen:
+    // const publicId = extractPublicId(profile.avatar);
+    // await cloudinary.uploader.destroy(publicId);
+
+    profile.avatar = "";
+    await profile.save();
+
+    res.json({ success: true, message: "Profil fotoğrafı kaldırıldı" });
+  } catch (err) {
+    console.error("❌ Avatar delete error:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 module.exports = router;

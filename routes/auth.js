@@ -40,6 +40,8 @@ async function generateUniqueInviteID() {
 
 // 📌 Register endpoint (güncellenmiş)
 router.post("/register", async (req, res) => {
+  console.log("📩 Gelen register body:", req.body);
+
   try {
     const { phone, password, fullName } = req.body;
 
