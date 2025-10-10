@@ -8,8 +8,6 @@ const mongoose = require("mongoose");
 // ✅ Yeni kumbara oluştur (davet destekli)
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    console.log("📨 Davet edilecek kullanıcılar:", invitedUsers);
-    console.log("📨 pendingInvites eklenecek userID listesi:", validUsers);
     const { type, name, targetAmount, category, color, invitedUsers = [] } = req.body;
     const userId = req.user.userId;
 
