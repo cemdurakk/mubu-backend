@@ -3,7 +3,7 @@ const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware");
 const PiggyBank = require("../models/PiggyBank");
 const SubWallet = require("../models/SubWallet");
-
+const mongoose = require("mongoose");
 
 // ✅ Yeni kumbara oluştur (davet destekli)
 router.post("/create", authMiddleware, async (req, res) => {
@@ -228,21 +228,28 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
 });
 
 // ✅ Kullanıcının bekleyen davetlerini getir
+
+
+// ✅ Kullanıcının bekleyen davetlerini getir
 router.get("/pending", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = new mongoose.Types.ObjectId(req.user.userId); // 👈 önemli
 
-    // Kullanıcının davet edildiği tüm kumbaraları bul
     const pendingPiggyBanks = await PiggyBank.find({
-      pendingInvites: userId
+      pendingInvites: userId,
     })
       .populate("subWalletId", "type")
-      .populate("owner", "phone")
+      .populate("owner", "phone inviteID")
+      .populate("pendingInvites", "phone inviteID")
       .sort({ createdAt: -1 });
+
+    if (!pendingPiggyBanks.length) {
+      console.log(`ℹ️ Kullanıcının pending daveti bulunamadı: ${userId}`);
+    }
 
     res.status(200).json({
       success: true,
-      pendingInvites: pendingPiggyBanks.map(pb => ({
+      pendingInvites: pendingPiggyBanks.map((pb) => ({
         _id: pb._id,
         name: pb.name,
         type: pb.subWalletId?.type,
@@ -255,6 +262,7 @@ router.get("/pending", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
+
 
 
 // 🚫 Daveti reddet
