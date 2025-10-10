@@ -302,6 +302,45 @@ router.get("/participants/:piggyBankId", authMiddleware, async (req, res) => {
   }
 });
 
+// 🔍 Kullanıcıyı inviteID ile ara
+router.get("/search-user/:inviteID", async (req, res) => {
+  try {
+    const { inviteID } = req.params;
+
+    const User = require("../models/User");
+    const ProfileInfo = require("../models/ProfileInfo");
+
+    // Kullanıcıyı davet koduna göre bul
+    const user = await User.findOne({ inviteID });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Kullanıcı bulunamadı",
+      });
+    }
+
+    // Profil bilgisini al (isim gibi)
+    const profile = await ProfileInfo.findOne({ userId: user._id });
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: profile?.name || "İsimsiz Kullanıcı",
+        phone: user.phone,
+        inviteID: user.inviteID,
+      },
+    });
+  } catch (err) {
+    console.error("❌ search-user hatası:", err);
+    res.status(500).json({
+      success: false,
+      message: "Sunucu hatası",
+    });
+  }
+});
+
+
 
 
 module.exports = router;
