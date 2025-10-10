@@ -36,7 +36,8 @@ router.post("/create", authMiddleware, async (req, res) => {
       category,
       color,
       participants: [userId],
-      pendingInvites: [], // ✅ başlat
+      pendingInvites: [],
+      owner: userId, // ✅ eklendi
     });
 
     // ✅ Eğer davet listesi geldiyse kullanıcıları pending'e ekle
