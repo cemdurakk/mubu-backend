@@ -5,10 +5,10 @@ const PiggyBank = require("../models/PiggyBank");
 const SubWallet = require("../models/SubWallet");
 
 
-// ✅ Yeni kumbara oluştur
+// ✅ Yeni kumbara oluştur (davet destekli)
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    const { type, name, targetAmount, category, color } = req.body;
+    const { type, name, targetAmount, category, color, invitedUsers = [] } = req.body;
     const userId = req.user.userId;
 
     if (!type) {
@@ -27,16 +27,33 @@ router.post("/create", authMiddleware, async (req, res) => {
       await subWallet.save();
     }
 
-    // Yeni kumbara oluştur (parayı direkt içine atıyoruz)
+    // Yeni kumbara oluştur
     const piggyBank = new PiggyBank({
       subWalletId: subWallet._id,
       name,
-      targetAmount,             // kullanıcı belirlediği miktar
-      currentAmount: targetAmount, // ✅ direkt içine eklendi
+      targetAmount,
+      currentAmount: targetAmount,
       category,
       color,
       participants: [userId],
+      pendingInvites: [], // ✅ başlat
     });
+
+    // ✅ Eğer davet listesi geldiyse kullanıcıları pending'e ekle
+    if (Array.isArray(invitedUsers) && invitedUsers.length > 0) {
+      const User = require("../models/User");
+      const validUsers = [];
+
+      for (const inviteID of invitedUsers) {
+        const user = await User.findOne({ inviteID });
+        if (user && user._id.toString() !== userId) {
+          validUsers.push(user._id);
+        }
+      }
+
+      piggyBank.pendingInvites = validUsers;
+    }
+
     await piggyBank.save();
 
     // SubWallet’a ekle
