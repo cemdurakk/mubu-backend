@@ -182,6 +182,29 @@ router.put("/change-password", authMiddleware, async (req, res) => {
   }
 });
 
+// 🔹 Kullanıcı çıkışı → firstLoginCompleted = false
+router.post("/logout", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    // ✅ firstLoginCompleted'ı false yap
+    user.firstLoginCompleted = false;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Kullanıcı başarıyla çıkış yaptı (firstLoginCompleted = false)",
+    });
+  } catch (err) {
+    console.error("❌ Logout error:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 
 
 module.exports = router;
