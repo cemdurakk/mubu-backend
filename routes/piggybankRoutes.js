@@ -209,5 +209,99 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Kullanıcının bekleyen davetlerini getir
+router.get("/pending", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Kullanıcının davet edildiği tüm kumbaraları bul
+    const pendingPiggyBanks = await PiggyBank.find({
+      pendingInvites: userId
+    })
+      .populate("subWalletId", "type")
+      .populate("owner", "phone")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      pendingInvites: pendingPiggyBanks.map(pb => ({
+        _id: pb._id,
+        name: pb.name,
+        type: pb.subWalletId?.type,
+        owner: pb.owner,
+        createdAt: pb.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error("❌ Bekleyen davetleri getirme hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
+// 🚫 Daveti reddet
+router.post("/decline-invite", authMiddleware, async (req, res) => {
+  try {
+    const { piggyBankId } = req.body;
+    const userId = req.user.userId;
+
+    if (!piggyBankId) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi" });
+    }
+
+    const piggyBank = await PiggyBank.findById(piggyBankId);
+    if (!piggyBank) {
+      return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
+    }
+
+    // Kullanıcı gerçekten davetli mi kontrol et
+    if (!piggyBank.pendingInvites.includes(userId)) {
+      return res.status(400).json({ success: false, message: "Bu kumbara için davet bulunamadı" });
+    }
+
+    // Pending listesinden çıkar
+    piggyBank.pendingInvites = piggyBank.pendingInvites.filter(
+      id => id.toString() !== userId
+    );
+    await piggyBank.save();
+
+    // (İsteğe bağlı) Bildirim oluşturulabilir
+
+    return res.status(200).json({
+      success: true,
+      message: "Davet reddedildi",
+    });
+  } catch (err) {
+    console.error("❌ Davet reddetme hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
+// 👥 Kumbara katılımcılarını getir
+router.get("/participants/:piggyBankId", authMiddleware, async (req, res) => {
+  try {
+    const { piggyBankId } = req.params;
+
+    const piggyBank = await PiggyBank.findById(piggyBankId)
+      .populate("participants", "phone name inviteID")
+      .populate("pendingInvites", "phone name inviteID");
+
+    if (!piggyBank) {
+      return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
+    }
+
+    res.status(200).json({
+      success: true,
+      participants: piggyBank.participants,
+      pendingInvites: piggyBank.pendingInvites,
+    });
+  } catch (err) {
+    console.error("❌ Katılımcı listesi hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 
 module.exports = router;

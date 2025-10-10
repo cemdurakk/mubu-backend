@@ -436,6 +436,42 @@ router.get("/me", authMiddleware, async (req, res) => {
   }
 });
 
+// 📌 Kullanıcıyı InviteID ile arama endpoint'i
+router.get("/search/:inviteID", authMiddleware, async (req, res) => {
+  try {
+    const { inviteID } = req.params;
+
+    // Davet ID'si geçerli mi kontrol et
+    if (!inviteID || !inviteID.startsWith("#")) {
+      return res.status(400).json({ success: false, message: "Geçersiz davet kodu" });
+    }
+
+    // Kullanıcıyı bul
+    const user = await User.findOne({ inviteID });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    // Kullanıcının temel profil bilgilerini al
+    const profile = await ProfileInfo.findOne({ userId: user._id });
+
+    return res.json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: profile?.name || "İsimsiz Kullanıcı",
+        phone: user.phone,
+        inviteID: user.inviteID,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Kullanıcı arama hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 
 
 
