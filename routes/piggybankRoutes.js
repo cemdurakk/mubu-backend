@@ -8,6 +8,8 @@ const mongoose = require("mongoose");
 // ✅ Yeni kumbara oluştur (davet destekli)
 router.post("/create", authMiddleware, async (req, res) => {
   try {
+    console.log("📨 Davet edilecek kullanıcılar:", invitedUsers);
+    console.log("📨 pendingInvites eklenecek userID listesi:", validUsers);
     const { type, name, targetAmount, category, color, invitedUsers = [] } = req.body;
     const userId = req.user.userId;
 
@@ -230,6 +232,7 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
 // ✅ Kullanıcının bekleyen davetlerini getir
 router.get("/pending", authMiddleware, async (req, res) => {
   try {
+    console.log("🔎 pending route çağrıldı, userId:", req.user.userId);
     const mongoose = require("mongoose");
     const userId = new mongoose.Types.ObjectId(req.user.userId); // 🔥 string → ObjectId
 
