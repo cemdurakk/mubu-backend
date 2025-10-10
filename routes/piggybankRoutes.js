@@ -341,31 +341,41 @@ router.get("/search-user/:inviteID", async (req, res) => {
   }
 });
 
-// ✅ Kullanıcının daha önce davet ettiği kullanıcıları getir
+
+// ✅ Kullanıcının daha önce davet ettiği kullanıcıları getir (isim dahil)
 router.get("/invited-users", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
     const User = require("../models/User");
+    const ProfileInfo = require("../models/ProfileInfo");
 
     // Kullanıcının sahip olduğu tüm kumbaraları bul
-    const myPiggyBanks = await PiggyBank.find({ owner: userId }).populate("pendingInvites", "inviteID phone");
+    const myPiggyBanks = await PiggyBank.find({ owner: userId }).populate(
+      "pendingInvites",
+      "inviteID phone"
+    );
 
-    // Tüm pending kullanıcıları birleştir
+    // Tüm davet edilen kullanıcıları topla (benzersiz)
     const invitedSet = new Set();
     const invitedUsers = [];
 
-    myPiggyBanks.forEach((pb) => {
-      pb.pendingInvites.forEach((u) => {
+    for (const pb of myPiggyBanks) {
+      for (const u of pb.pendingInvites) {
         if (!invitedSet.has(u._id.toString())) {
           invitedSet.add(u._id.toString());
+
+          // 🔹 Kullanıcının profil adını çek
+          const profile = await ProfileInfo.findOne({ userId: u._id });
+
           invitedUsers.push({
             _id: u._id,
             inviteID: u.inviteID,
             phone: u.phone,
+            name: profile?.name || "İsimsiz Kullanıcı",
           });
         }
-      });
-    });
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -373,9 +383,13 @@ router.get("/invited-users", authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ invited-users hatası:", err);
-    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+    return res.status(500).json({
+      success: false,
+      message: "Sunucu hatası",
+    });
   }
 });
+
 
 
 // 🗑 Davet edilen kullanıcıyı kaldır
