@@ -210,7 +210,6 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
 // ✅ Kullanıcının bekleyen davetlerini getir
 router.get("/pending", authMiddleware, async (req, res) => {
   try {
-    console.log("🔎 pending route çağrıldı, userId:", req.user.userId);
     const mongoose = require("mongoose");
     const userId = new mongoose.Types.ObjectId(req.user.userId); // 🔥 string → ObjectId
 
