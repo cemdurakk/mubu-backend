@@ -108,4 +108,106 @@ router.get("/:subWalletId", authMiddleware, async (req, res) => {
 });
 
 
+// 📩 Kullanıcı davet et
+router.post("/invite", authMiddleware, async (req, res) => {
+  try {
+    const { piggyBankId, inviteID } = req.body;
+    const inviterId = req.user.userId;
+
+    if (!piggyBankId || !inviteID) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi" });
+    }
+
+    // Davet edilen kullanıcıyı bul
+    const invitedUser = await require("../models/User").findOne({ inviteID });
+    if (!invitedUser) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    // Kendi kendini davet etmeye çalışıyor mu?
+    if (invitedUser._id.toString() === inviterId) {
+      return res.status(400).json({ success: false, message: "Kendini davet edemezsin" });
+    }
+
+    // Kumbara'yı bul
+    const piggyBank = await PiggyBank.findById(piggyBankId);
+    if (!piggyBank) {
+      return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
+    }
+
+    // Zaten katılımcı mı veya davetli mi?
+    const alreadyParticipant = piggyBank.participants.includes(invitedUser._id);
+    const alreadyInvited = piggyBank.pendingInvites.includes(invitedUser._id);
+    if (alreadyParticipant || alreadyInvited) {
+      return res.status(400).json({ success: false, message: "Bu kullanıcı zaten eklendi veya davetli" });
+    }
+
+    // Davet edilen kullanıcıyı pending listesine ekle
+    piggyBank.pendingInvites.push(invitedUser._id);
+    await piggyBank.save();
+
+    // Bildirim oluştur (isteğe bağlı Notification modeliyle)
+    // await Notification.create({
+    //   userId: invitedUser._id,
+    //   type: "invite",
+    //   message: `Bir kumbara daveti aldın: ${piggyBank.name}`,
+    // });
+
+    return res.status(200).json({
+      success: true,
+      message: `${inviteID} kullanıcı ID'sine sahip kullanıcı davet edildi.`,
+    });
+  } catch (err) {
+    console.error("❌ Davet hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
+// ✅ Daveti kabul et
+router.post("/accept-invite", authMiddleware, async (req, res) => {
+  try {
+    const { piggyBankId } = req.body;
+    const userId = req.user.userId;
+
+    if (!piggyBankId) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi" });
+    }
+
+    // Kumbara'yı bul
+    const piggyBank = await PiggyBank.findById(piggyBankId);
+    if (!piggyBank) {
+      return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
+    }
+
+    // Kullanıcı gerçekten davetli mi?
+    if (!piggyBank.pendingInvites.includes(userId)) {
+      return res.status(400).json({ success: false, message: "Bu kumbara için davet bulunamadı" });
+    }
+
+    // Pending'den çıkar, participants listesine ekle
+    piggyBank.pendingInvites = piggyBank.pendingInvites.filter(
+      (id) => id.toString() !== userId
+    );
+    piggyBank.participants.push(userId);
+    await piggyBank.save();
+
+    // Bildirim gönder (isteğe bağlı)
+    // await Notification.create({
+    //   userId: piggyBank.owner,
+    //   type: "inviteAccepted",
+    //   message: `Davetin kabul edildi: ${piggyBank.name}`,
+    // });
+
+    return res.status(200).json({
+      success: true,
+      message: "Davet başarıyla kabul edildi",
+    });
+  } catch (err) {
+    console.error("❌ Davet kabul hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 module.exports = router;

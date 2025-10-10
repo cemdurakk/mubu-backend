@@ -48,13 +48,21 @@ const PiggyBankSchema = new mongoose.Schema(
       },
     ],
 
-    // Davet edilen kullanıcılar
-    invitations: [
+    // Bekleyen davetler (henüz kabul edilmemiş kullanıcılar)
+    pendingInvites: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+
+    // Kumbara sahibini belirt
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
   },
   { timestamps: true }
 );
