@@ -344,6 +344,74 @@ router.get("/search-user/:inviteID", async (req, res) => {
   }
 });
 
+// ✅ Kullanıcının daha önce davet ettiği kullanıcıları getir
+router.get("/invited-users", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const User = require("../models/User");
+
+    // Kullanıcının sahip olduğu tüm kumbaraları bul
+    const myPiggyBanks = await PiggyBank.find({ owner: userId }).populate("pendingInvites", "inviteID phone");
+
+    // Tüm pending kullanıcıları birleştir
+    const invitedSet = new Set();
+    const invitedUsers = [];
+
+    myPiggyBanks.forEach((pb) => {
+      pb.pendingInvites.forEach((u) => {
+        if (!invitedSet.has(u._id.toString())) {
+          invitedSet.add(u._id.toString());
+          invitedUsers.push({
+            _id: u._id,
+            inviteID: u.inviteID,
+            phone: u.phone,
+          });
+        }
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      users: invitedUsers,
+    });
+  } catch (err) {
+    console.error("❌ invited-users hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
+// 🗑 Davet edilen kullanıcıyı kaldır
+router.delete("/delete-invited/:userId", authMiddleware, async (req, res) => {
+  try {
+    const { userId: invitedUserId } = req.params;
+    const ownerId = req.user.userId;
+
+    // Kullanıcının sahip olduğu kumbaraları getir
+    const myPiggyBanks = await PiggyBank.find({ owner: ownerId });
+
+    let updatedCount = 0;
+    for (const pb of myPiggyBanks) {
+      const before = pb.pendingInvites.length;
+      pb.pendingInvites = pb.pendingInvites.filter((id) => id.toString() !== invitedUserId);
+      if (pb.pendingInvites.length !== before) {
+        updatedCount++;
+        await pb.save();
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: updatedCount > 0 ? "Davet başarıyla silindi" : "Bu kullanıcı zaten listede değil",
+    });
+  } catch (err) {
+    console.error("❌ delete-invited hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
+
 
 // ✅ Belirli bir SubWallet’ın kumbaralarını getir
 router.get("/:subWalletId", authMiddleware, async (req, res) => {
