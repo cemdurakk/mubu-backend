@@ -108,26 +108,6 @@ router.get("/all", authMiddleware, async (req, res) => {
 });
 
 
-
-
-// ✅ Belirli bir SubWallet’ın kumbaralarını getir
-router.get("/:subWalletId", authMiddleware, async (req, res) => {
-  try {
-    const { subWalletId } = req.params;
-
-    const piggyBanks = await PiggyBank.find({ subWalletId }).sort({ createdAt: -1 });
-
-    return res.status(200).json({
-      success: true,
-      piggyBanks,
-    });
-  } catch (err) {
-    console.error("❌ Belirli subWallet kumbaraları listeleme hatası:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
-  }
-});
-
-
 // 📩 Kullanıcı davet et
 router.post("/invite", authMiddleware, async (req, res) => {
   try {
@@ -361,6 +341,24 @@ router.get("/search-user/:inviteID", async (req, res) => {
       success: false,
       message: "Sunucu hatası",
     });
+  }
+});
+
+
+// ✅ Belirli bir SubWallet’ın kumbaralarını getir
+router.get("/:subWalletId", authMiddleware, async (req, res) => {
+  try {
+    const { subWalletId } = req.params;
+
+    const piggyBanks = await PiggyBank.find({ subWalletId }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      piggyBanks,
+    });
+  } catch (err) {
+    console.error("❌ Belirli subWallet kumbaraları listeleme hatası:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 });
 
