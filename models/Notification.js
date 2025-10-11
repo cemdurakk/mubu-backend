@@ -1,5 +1,3 @@
-// C:\Users\yasar\mubu-backend\models\Notification.js
-
 const mongoose = require("mongoose");
 const moment = require("moment-timezone");
 
@@ -9,11 +7,20 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["deposit", "withdraw", "transfer", "spend", "piggybank_create"], 
+      enum: [
+        "deposit",
+        "withdraw",
+        "transfer",
+        "spend",
+        "piggybank_create",
+        "piggybank_invite",          // ✅ yeni eklendi
+        "piggybank_invite_accepted", // ✅ yeni eklendi
+      ],
       required: true,
     },
 
-    amount: { type: Number, required: true },
+    // 💬 artık opsiyonel olacak, çünkü davetlerde para yok
+    amount: { type: Number, default: 0 },
 
     from: { type: mongoose.Schema.Types.ObjectId, ref: "Wallet", default: null },
     to: { type: mongoose.Schema.Types.ObjectId, ref: "Wallet", default: null },
@@ -28,9 +35,8 @@ const notificationSchema = new mongoose.Schema(
 
     paymentMethod: { type: String, default: null },
     cardLast4: { type: String, default: null },
-    secureVerified: { type: Boolean, default: false }, // ✅ bunu da ekledim
+    secureVerified: { type: Boolean, default: false },
 
-    // 🔹 Türkiye saatine göre createdAt
     createdAt: {
       type: Date,
       default: () => moment().tz("Europe/Istanbul").toDate(),

@@ -106,6 +106,7 @@ router.get("/all", authMiddleware, async (req, res) => {
 });
 
 
+
 // 📩 Kullanıcı davet et
 router.post("/invite", authMiddleware, async (req, res) => {
   try {
@@ -116,40 +117,46 @@ router.post("/invite", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: "Eksik bilgi" });
     }
 
+    const User = require("../models/User");
+    const ProfileInfo = require("../models/ProfileInfo");
+    const Notification = require("../models/Notification");
+
     // Davet edilen kullanıcıyı bul
-    const invitedUser = await require("../models/User").findOne({ inviteID });
+    const invitedUser = await User.findOne({ inviteID });
     if (!invitedUser) {
       return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
     }
 
-    // Kendi kendini davet etmeye çalışıyor mu?
     if (invitedUser._id.toString() === inviterId) {
       return res.status(400).json({ success: false, message: "Kendini davet edemezsin" });
     }
 
-    // Kumbara'yı bul
     const piggyBank = await PiggyBank.findById(piggyBankId);
     if (!piggyBank) {
       return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
     }
 
-    // Zaten katılımcı mı veya davetli mi?
     const alreadyParticipant = piggyBank.participants.includes(invitedUser._id);
     const alreadyInvited = piggyBank.pendingInvites.includes(invitedUser._id);
     if (alreadyParticipant || alreadyInvited) {
       return res.status(400).json({ success: false, message: "Bu kullanıcı zaten eklendi veya davetli" });
     }
 
-    // Davet edilen kullanıcıyı pending listesine ekle
     piggyBank.pendingInvites.push(invitedUser._id);
     await piggyBank.save();
 
-    // Bildirim oluştur (isteğe bağlı Notification modeliyle)
-    // await Notification.create({
-    //   userId: invitedUser._id,
-    //   type: "invite",
-    //   message: `Bir kumbara daveti aldın: ${piggyBank.name}`,
-    // });
+    // 📨 Davet eden kullanıcının adını al
+    const inviterProfile = await ProfileInfo.findOne({ userId: inviterId });
+    const inviterName = inviterProfile?.name || "Bir kullanıcı";
+
+    // 📩 Davet edilen kişiye bildirim oluştur
+    await Notification.create({
+      userId: invitedUser._id,
+      type: "piggybank_invite",
+      amount: 0,
+      description: `${inviterName} kullanıcısı tarafından "${piggyBank.name}" adlı kumbaraya davet edildiniz.`,
+      status: "completed",
+    });
 
     return res.status(200).json({
       success: true,
@@ -162,6 +169,7 @@ router.post("/invite", authMiddleware, async (req, res) => {
 });
 
 
+
 // ✅ Daveti kabul et
 router.post("/accept-invite", authMiddleware, async (req, res) => {
   try {
@@ -172,30 +180,37 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: "Eksik bilgi" });
     }
 
-    // Kumbara'yı bul
-    const piggyBank = await PiggyBank.findById(piggyBankId);
+    const PiggyBank = require("../models/PiggyBank");
+    const ProfileInfo = require("../models/ProfileInfo");
+    const Notification = require("../models/Notification");
+
+    const piggyBank = await PiggyBank.findById(piggyBankId).populate("owner");
     if (!piggyBank) {
       return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
     }
 
-    // Kullanıcı gerçekten davetli mi?
     if (!piggyBank.pendingInvites.includes(userId)) {
       return res.status(400).json({ success: false, message: "Bu kumbara için davet bulunamadı" });
     }
 
-    // Pending'den çıkar, participants listesine ekle
     piggyBank.pendingInvites = piggyBank.pendingInvites.filter(
       (id) => id.toString() !== userId
     );
     piggyBank.participants.push(userId);
     await piggyBank.save();
 
-    // Bildirim gönder (isteğe bağlı)
-    // await Notification.create({
-    //   userId: piggyBank.owner,
-    //   type: "inviteAccepted",
-    //   message: `Davetin kabul edildi: ${piggyBank.name}`,
-    // });
+    // 📩 Kullanıcı ve isimleri bul
+    const accepterProfile = await ProfileInfo.findOne({ userId });
+    const accepterName = accepterProfile?.name || "Bir kullanıcı";
+
+    // 📩 Davet eden kişiye bildirim gönder
+    await Notification.create({
+      userId: piggyBank.owner,
+      type: "piggybank_invite_accepted",
+      amount: 0,
+      description: `"${piggyBank.name}" adlı kumbaraya davet ettiğiniz ${accepterName} kullanıcısı davetinizi kabul etti.`,
+      status: "completed",
+    });
 
     return res.status(200).json({
       success: true,
@@ -206,6 +221,8 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
+
+
 
 // ✅ Kullanıcının bekleyen davetlerini getir
 router.get("/pending", authMiddleware, async (req, res) => {
