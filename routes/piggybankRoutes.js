@@ -150,14 +150,18 @@ router.post("/invite", authMiddleware, async (req, res) => {
     const inviterName = inviterProfile?.name || "Bir kullanıcı";
 
     // 📩 Davet edilen kişiye bildirim oluştur
-    await Notification.create({
-      userId: invitedUser._id,
-      type: "piggybank_invite",
-      amount: 0,
-      description: `${inviterName} kullanıcısı tarafından "${piggyBank.name}" adlı kumbaraya davet edildiniz.`,
-      status: "completed",
-    });
-    console.log("✅ Davet bildirimi başarıyla oluşturuldu!");
+    try {
+      await Notification.create({
+        userId: invitedUser._id,
+        type: "piggybank_invite",
+        amount: 0,
+        description: `${inviterName} kullanıcısı tarafından "${piggyBank.name}" adlı kumbaraya davet edildiniz.`,
+        status: "completed",
+      });
+      console.log("✅ Davet bildirimi başarıyla oluşturuldu!");
+    } catch (notifyErr) {
+      console.error("❌ Notification create error:", notifyErr.message);
+    }
 
     return res.status(200).json({
       success: true,
