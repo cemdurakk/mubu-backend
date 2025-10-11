@@ -57,6 +57,33 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     await piggyBank.save();
 
+    // 📩 Davet bildirimi oluştur (kumbara oluşturma sırasında)
+    if (piggyBank.pendingInvites.length > 0) {
+      const Notification = require("../models/Notification");
+      const ProfileInfo = require("../models/ProfileInfo");
+
+      // Davet edenin adını al
+      const inviterProfile = await ProfileInfo.findOne({ userId });
+      const inviterName = inviterProfile?.name || "Bir kullanıcı";
+
+      // Her davetli kullanıcı için bildirim oluştur
+      for (const invitedUserId of piggyBank.pendingInvites) {
+        try {
+          await Notification.create({
+            userId: invitedUserId,
+            type: "piggybank_invite",
+            amount: 0,
+            description: `${inviterName} kullanıcısı tarafından "${piggyBank.name}" adlı kumbaraya davet edildiniz.`,
+            status: "completed",
+          });
+          console.log(`✅ Davet bildirimi oluşturuldu: ${invitedUserId}`);
+        } catch (notifyErr) {
+          console.error("❌ Davet bildirimi oluşturulamadı:", notifyErr.message);
+        }
+      }
+    }
+
+
     // SubWallet’a ekle
     subWallet.piggyBanks.push(piggyBank._id);
     await subWallet.save();
