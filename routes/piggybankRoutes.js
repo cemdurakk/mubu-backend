@@ -112,7 +112,7 @@ router.post("/invite", authMiddleware, async (req, res) => {
   try {
     const { piggyBankId, inviteID } = req.body;
     const inviterId = req.user.userId;
-
+    
     if (!piggyBankId || !inviteID) {
       return res.status(400).json({ success: false, message: "Eksik bilgi" });
     }
@@ -157,6 +157,7 @@ router.post("/invite", authMiddleware, async (req, res) => {
       description: `${inviterName} kullanıcısı tarafından "${piggyBank.name}" adlı kumbaraya davet edildiniz.`,
       status: "completed",
     });
+    console.log("✅ Davet bildirimi başarıyla oluşturuldu!");
 
     return res.status(200).json({
       success: true,
