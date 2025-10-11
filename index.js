@@ -31,8 +31,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/sms", smsRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/profile", profileRoutes);
-app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // 👈 yeni ekledikapp.use("/api/notifications", require("./routes/notificationRoutes"));
-app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // 👈 yeni ekledik
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/piggybank", piggyBankRoutes);
 
 
