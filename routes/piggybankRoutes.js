@@ -8,7 +8,7 @@ const mongoose = require("mongoose");
 // ✅ Yeni kumbara oluştur (davet destekli)
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    const { type, name, targetAmount, category, color, invitedUsers = [] } = req.body;
+    const { type, name, targetAmount, currentAmount, category, color, invitedUsers = [] } = req.body;
     const userId = req.user.userId;
 
     if (!type) {
@@ -31,14 +31,15 @@ router.post("/create", authMiddleware, async (req, res) => {
     const piggyBank = new PiggyBank({
       subWalletId: subWallet._id,
       name,
-      targetAmount: type === "savings" ? targetAmount || 0 : 0,
-      currentAmount: 0, // başlangıçta 0 olmalı
+      targetAmount: type === "savings" ? targetAmount || 0 : 0, // birikimlerde hedef
+      currentAmount: currentAmount || 0, // 💰 yatırılan gerçek para
       category,
       color,
       participants: [userId],
       pendingInvites: [],
       owner: userId,
     });
+
 
 
     // ✅ Eğer davet listesi geldiyse kullanıcıları pending'e ekle
