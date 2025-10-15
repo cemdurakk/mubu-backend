@@ -125,7 +125,7 @@ router.get("/all", authMiddleware, async (req, res) => {
     });
 
     // Kullanılan toplam bakiye (targetAmount’ların toplamı)
-    const usedBalance = piggyBanks.reduce((sum, p) => sum + (p.targetAmount || 0), 0);
+    const usedBalance = piggyBanks.reduce((sum, p) => sum + (p.currentAmount || 0), 0);
 
     // Tarihe göre sırala (son eklenenler önce gelsin)
     piggyBanks.sort((a, b) => b.createdAt - a.createdAt);
