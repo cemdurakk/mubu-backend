@@ -19,6 +19,7 @@ const PiggyBankSchema = new mongoose.Schema(
     // Hedef tutar (kullanıcı belirler)
     targetAmount: {
       type: Number,
+      required: false,
       default: 0,
     },
 

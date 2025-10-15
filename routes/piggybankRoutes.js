@@ -31,14 +31,15 @@ router.post("/create", authMiddleware, async (req, res) => {
     const piggyBank = new PiggyBank({
       subWalletId: subWallet._id,
       name,
-      targetAmount,
-      currentAmount: targetAmount,
+      targetAmount: type === "savings" ? targetAmount || 0 : 0,
+      currentAmount: 0, // başlangıçta 0 olmalı
       category,
       color,
       participants: [userId],
       pendingInvites: [],
-      owner: userId, // ✅ eklendi
+      owner: userId,
     });
+
 
     // ✅ Eğer davet listesi geldiyse kullanıcıları pending'e ekle
     if (Array.isArray(invitedUsers) && invitedUsers.length > 0) {
