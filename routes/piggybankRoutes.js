@@ -107,7 +107,15 @@ router.get("/all", authMiddleware, async (req, res) => {
     const userId = req.user.userId;  // ✅ doğru alan
 
     // Kullanıcının bulunduğu tüm subWallet’ları getir
-    const subWallets = await SubWallet.find({ participants: userId }).populate("piggyBanks");
+    const subWallets = await SubWallet.find({ participants: userId })
+      .populate({
+        path: "piggyBanks",
+        populate: {
+          path: "subWalletId",
+          select: "type", // sadece type alanını getir
+        },
+      });
+
 
     // Tüm kumbaraları birleştir
     let piggyBanks = [];
