@@ -241,6 +241,16 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
     piggyBank.participants.push(userId);
     await piggyBank.save();
 
+    // 🧩 SubWallet katılımcı listesine de ekle
+    const subWallet = await SubWallet.findById(piggyBank.subWalletId);
+    if (subWallet) {
+      if (!subWallet.participants.includes(userId)) {
+        subWallet.participants.push(userId);
+        await subWallet.save();
+      }
+    }
+
+
     // 📩 Kullanıcı ve isimleri bul
     const accepterProfile = await ProfileInfo.findOne({ userId });
     const accepterName = accepterProfile?.name || "Bir kullanıcı";
