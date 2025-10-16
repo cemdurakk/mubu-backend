@@ -30,7 +30,12 @@ const userSchema = new mongoose.Schema(
     deviceId: { type: String, default: null },           // Kullanıcının kayıtlı cihaz kimliği
 
     inviteID: { type: String, unique: true }, // Kullanıcıya özel davet kodu (#123456789)
-
+    
+    profileInfoId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProfileInfo",
+      default: null
+    },
 
     // Abonelik (ebeveyn paketi için)
     subscriptionActive: { type: Boolean, default: false }, 

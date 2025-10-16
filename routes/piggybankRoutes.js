@@ -338,50 +338,45 @@ router.post("/decline-invite", authMiddleware, async (req, res) => {
 });
 
 
-// 👥 Kumbara katılımcılarını getir (avatar ve isim dahil)
-// 👥 Kumbara katılımcılarını getir
-router.get("/participants/:piggyBankId", authMiddleware, async (req, res) => {
-  try {
-    const { piggyBankId } = req.params;
+  // 👥 Kumbara katılımcılarını getir
+  router.get("/participants/:piggyBankId", authMiddleware, async (req, res) => {
+    try {
+      const { piggyBankId } = req.params;
 
-    const piggyBank = await PiggyBank.findById(piggyBankId)
-      .populate({
-        path: "participants",
-        select: "phone inviteID",
-        populate: {
-          path: "profileInfoId", // 🔥 kullanıcı profil bilgileri
-          select: "name avatar", // sadece isim ve avatar
-        },
-      })
-      .populate({
-        path: "pendingInvites",
-        select: "phone inviteID",
-        populate: {
-          path: "profileInfoId",
-          select: "name avatar",
-        },
-      });
+      const piggyBank = await PiggyBank.findById(piggyBankId)
+        .populate({
+          path: "participants",
+          select: "phone inviteID profileInfoId",
+          populate: {
+            path: "profileInfoId",
+            select: "name avatar"
+          }
+        })
+        .populate({
+          path: "pendingInvites",
+          select: "phone inviteID profileInfoId",
+          populate: {
+            path: "profileInfoId",
+            select: "name avatar"
+          }
+        });
 
-    if (!piggyBank) {
-      return res.status(404).json({
-        success: false,
-        message: "Kumbara bulunamadı",
+      if (!piggyBank) {
+        return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
+      }
+
+      res.status(200).json({
+        success: true,
+        participants: piggyBank.participants,
+        pendingInvites: piggyBank.pendingInvites,
       });
+    } catch (err) {
+      console.error("❌ Katılımcı listesi hatası:", err);
+      res.status(500).json({ success: false, message: "Sunucu hatası" });
     }
+  });
 
-    return res.status(200).json({
-      success: true,
-      participants: piggyBank.participants,
-      pendingInvites: piggyBank.pendingInvites,
-    });
-  } catch (err) {
-    console.error("❌ Katılımcı listesi hatası:", err);
-    res.status(500).json({
-      success: false,
-      message: "Sunucu hatası",
-    });
-  }
-});
+
 
 
 
