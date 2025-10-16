@@ -339,6 +339,7 @@ router.post("/decline-invite", authMiddleware, async (req, res) => {
 
 
 // 👥 Kumbara katılımcılarını getir (avatar ve isim dahil)
+// 👥 Kumbara katılımcılarını getir
 router.get("/participants/:piggyBankId", authMiddleware, async (req, res) => {
   try {
     const { piggyBankId } = req.params;
@@ -346,39 +347,42 @@ router.get("/participants/:piggyBankId", authMiddleware, async (req, res) => {
     const piggyBank = await PiggyBank.findById(piggyBankId)
       .populate({
         path: "participants",
+        select: "phone inviteID",
         populate: {
-          path: "profileInfoId", // 🔥 avatar, name, fullName buradan gelecek
-          select: "avatar name fullName",
+          path: "profileInfoId", // 🔥 kullanıcı profil bilgileri
+          select: "name avatar", // sadece isim ve avatar
         },
-        select: "phone name inviteID", // kullanıcı bazlı alanlar
       })
       .populate({
         path: "pendingInvites",
+        select: "phone inviteID",
         populate: {
           path: "profileInfoId",
-          select: "avatar name fullName",
+          select: "name avatar",
         },
-        select: "phone name inviteID",
       });
 
     if (!piggyBank) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Kumbara bulunamadı" });
+      return res.status(404).json({
+        success: false,
+        message: "Kumbara bulunamadı",
+      });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       participants: piggyBank.participants,
       pendingInvites: piggyBank.pendingInvites,
     });
   } catch (err) {
     console.error("❌ Katılımcı listesi hatası:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Sunucu hatası" });
+    res.status(500).json({
+      success: false,
+      message: "Sunucu hatası",
+    });
   }
 });
+
 
 
 // 🔍 Kullanıcıyı inviteID ile ara
