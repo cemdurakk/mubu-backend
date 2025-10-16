@@ -27,10 +27,15 @@ router.get("/", authMiddleware, async (req, res) => {
         city: "",
         district: "",
         avatar: "",
-        tcNo: "", // ✅ yeni alan
+        tcNo: "",
       });
       await profile.save();
+
+      // 🔗 Kullanıcıya profil ID'sini bağla
+      user.profileInfoId = profile._id;
+      await user.save();
     }
+
 
     res.json({
       success: true,
@@ -72,12 +77,16 @@ router.put("/", authMiddleware, async (req, res) => {
 
     await profile.save();
 
+    // 🔗 Kullanıcıyla ProfileInfo bağlantısını kur
+    await User.findByIdAndUpdate(userId, { profileInfoId: profile._id });
+
     res.json({ success: true, message: "Profil güncellendi", profile });
   } catch (err) {
     console.error("❌ Profil güncelleme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
+
 
 
 // ✅ Cloudinary storage
