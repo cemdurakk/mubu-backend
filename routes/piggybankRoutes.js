@@ -6,6 +6,7 @@ const SubWallet = require("../models/SubWallet");
 const mongoose = require("mongoose");
 
 // ✅ Yeni kumbara oluştur (davet destekli)
+// ✅ Yeni kumbara oluştur (sadece owner için SubWallet oluşturur)
 router.post("/create", authMiddleware, async (req, res) => {
   try {
     const { type, name, targetAmount, currentAmount, category, color, invitedUsers = [] } = req.body;
@@ -15,7 +16,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: "Kumbara türü (type) gerekli" });
     }
 
-    // Kullanıcının subWallet’ını bul/oluştur
+    // 🎯 Kullanıcının sadece kendi SubWallet'ını oluştur
     let subWallet = await SubWallet.findOne({ userId, type });
     if (!subWallet) {
       subWallet = new SubWallet({
@@ -27,22 +28,20 @@ router.post("/create", authMiddleware, async (req, res) => {
       await subWallet.save();
     }
 
-    // Yeni kumbara oluştur
+    // 🎯 Kumbara oluştur
     const piggyBank = new PiggyBank({
       subWalletId: subWallet._id,
       name,
-      targetAmount: type === "savings" ? targetAmount || 0 : 0, // birikimlerde hedef
-      currentAmount: currentAmount || 0, // 💰 yatırılan gerçek para
+      targetAmount: type === "savings" ? targetAmount || 0 : 0,
+      currentAmount: currentAmount || 0,
       category,
       color,
-      participants: [userId],
+      participants: [userId], // sadece kurucu katılımcı
       pendingInvites: [],
       owner: userId,
     });
 
-
-
-    // ✅ Eğer davet listesi geldiyse kullanıcıları pending'e ekle
+    // 🔹 Davetliler varsa pendingInvites’e ekle
     if (Array.isArray(invitedUsers) && invitedUsers.length > 0) {
       const User = require("../models/User");
       const validUsers = [];
@@ -59,34 +58,25 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     await piggyBank.save();
 
-    // 📩 Davet bildirimi oluştur (kumbara oluşturma sırasında)
+    // 📨 Davet bildirimi gönder
     if (piggyBank.pendingInvites.length > 0) {
       const Notification = require("../models/Notification");
       const ProfileInfo = require("../models/ProfileInfo");
-
-      // Davet edenin adını al
       const inviterProfile = await ProfileInfo.findOne({ userId });
       const inviterName = inviterProfile?.name || "Bir kullanıcı";
 
-      // Her davetli kullanıcı için bildirim oluştur
       for (const invitedUserId of piggyBank.pendingInvites) {
-        try {
-          await Notification.create({
-            userId: invitedUserId,
-            type: "piggybank_invite",
-            amount: 0,
-            description: `${inviterName} kullanıcısı tarafından "${piggyBank.name}" adlı kumbaraya davet edildiniz.`,
-            status: "completed",
-          });
-          console.log(`✅ Davet bildirimi oluşturuldu: ${invitedUserId}`);
-        } catch (notifyErr) {
-          console.error("❌ Davet bildirimi oluşturulamadı:", notifyErr.message);
-        }
+        await Notification.create({
+          userId: invitedUserId,
+          type: "piggybank_invite",
+          amount: 0,
+          description: `${inviterName} kullanıcısı tarafından "${piggyBank.name}" adlı kumbaraya davet edildiniz.`,
+          status: "completed",
+        });
       }
     }
 
-
-    // SubWallet’a ekle
+    // 🎯 Sadece kurucunun SubWallet'ına ekle
     subWallet.piggyBanks.push(piggyBank._id);
     await subWallet.save();
 
@@ -100,6 +90,7 @@ router.post("/create", authMiddleware, async (req, res) => {
     return res.status(500).json({ success: false, error: "Server error" });
   }
 });
+
 
 
 
@@ -213,6 +204,7 @@ router.post("/invite", authMiddleware, async (req, res) => {
 
 
 // ✅ Daveti kabul et
+// ✅ Daveti kabul et (kabul eden için SubWallet ekler)
 router.post("/accept-invite", authMiddleware, async (req, res) => {
   try {
     const { piggyBankId } = req.body;
@@ -226,36 +218,46 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
     const ProfileInfo = require("../models/ProfileInfo");
     const Notification = require("../models/Notification");
 
-    const piggyBank = await PiggyBank.findById(piggyBankId).populate("owner");
+    const piggyBank = await PiggyBank.findById(piggyBankId);
     if (!piggyBank) {
       return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
     }
 
+    // ❌ Kullanıcı davetli değilse reddet
     if (!piggyBank.pendingInvites.includes(userId)) {
       return res.status(400).json({ success: false, message: "Bu kumbara için davet bulunamadı" });
     }
 
-    piggyBank.pendingInvites = piggyBank.pendingInvites.filter(
-      (id) => id.toString() !== userId
-    );
+    // ✅ Katılımcı listelerine ekle
+    piggyBank.pendingInvites = piggyBank.pendingInvites.filter(id => id.toString() !== userId);
     piggyBank.participants.push(userId);
     await piggyBank.save();
 
-    // 🧩 SubWallet katılımcı listesine de ekle
-    const subWallet = await SubWallet.findById(piggyBank.subWalletId);
-    if (subWallet) {
-      if (!subWallet.participants.includes(userId)) {
-        subWallet.participants.push(userId);
-        await subWallet.save();
-      }
+    // ✅ Kullanıcının kendi SubWallet'ını oluştur veya bul
+    const ownerSubWallet = await SubWallet.findById(piggyBank.subWalletId);
+    const type = ownerSubWallet ? ownerSubWallet.type : "shared";
+
+    let userSubWallet = await SubWallet.findOne({ userId, type });
+    if (!userSubWallet) {
+      userSubWallet = new SubWallet({
+        userId,
+        type,
+        participants: [userId],
+        piggyBanks: [],
+      });
+      await userSubWallet.save();
     }
 
+    // ✅ Kabul edilen kumbara'yı kullanıcının subWallet'ına da ekle
+    if (!userSubWallet.piggyBanks.includes(piggyBank._id)) {
+      userSubWallet.piggyBanks.push(piggyBank._id);
+      await userSubWallet.save();
+    }
 
-    // 📩 Kullanıcı ve isimleri bul
+    // 📨 Bildirim gönder
     const accepterProfile = await ProfileInfo.findOne({ userId });
     const accepterName = accepterProfile?.name || "Bir kullanıcı";
 
-    // 📩 Davet eden kişiye bildirim gönder
     await Notification.create({
       userId: piggyBank.owner,
       type: "piggybank_invite_accepted",
@@ -273,6 +275,7 @@ router.post("/accept-invite", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
+
 
 
 
