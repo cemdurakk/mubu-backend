@@ -532,6 +532,49 @@ router.get("/:subWalletId", authMiddleware, async (req, res) => {
 });
 
 
+// ✅ Belirli bir kumbara detayını getir
+router.get("/detail/:piggyBankId", authMiddleware, async (req, res) => {
+  try {
+    const { piggyBankId } = req.params;
+
+    // ObjectId kontrolü
+    if (!mongoose.Types.ObjectId.isValid(piggyBankId)) {
+      return res.status(400).json({ success: false, message: "Geçersiz kumbara ID" });
+    }
+
+    const piggyBank = await PiggyBank.findById(piggyBankId)
+      .populate("subWalletId", "type")
+      .populate({
+        path: "participants",
+        select: "phone inviteID profileInfoId",
+        populate: {
+          path: "profileInfoId",
+          select: "name avatar",
+        },
+      })
+      .populate({
+        path: "owner",
+        select: "phone inviteID profileInfoId",
+        populate: {
+          path: "profileInfoId",
+          select: "name avatar",
+        },
+      });
+
+    if (!piggyBank) {
+      return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      piggybank: piggyBank,
+    });
+  } catch (err) {
+    console.error("❌ Kumbara detay hatası:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 
 
 module.exports = router;
