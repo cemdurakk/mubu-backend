@@ -575,6 +575,64 @@ router.get("/detail/:piggyBankId", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Mevcut bir kumbaraya para ekle (cüzdandan kumbaraya transfer)
+router.post("/deposit", authMiddleware, async (req, res) => {
+  try {
+    const { piggyBankId, amount } = req.body;
+    const userId = req.user.userId;
+
+    if (!piggyBankId || !amount) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi" });
+    }
+
+    // 🎯 Kumbara kontrolü
+    const piggyBank = await PiggyBank.findById(piggyBankId);
+    if (!piggyBank) {
+      return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
+    }
+
+    // 🎯 Cüzdan kontrolü
+    const Wallet = require("../models/Wallet");
+    const wallet = await Wallet.findOne({ userId });
+    if (!wallet) {
+      return res.status(404).json({ success: false, message: "Cüzdan bulunamadı" });
+    }
+
+    // 🎯 Yetersiz bakiye kontrolü
+    if (wallet.balance < amount) {
+      return res.status(400).json({ success: false, message: "Yetersiz bakiye" });
+    }
+
+    // 🔹 Güncellemeler
+    wallet.balance -= amount;
+    piggyBank.currentAmount += amount;
+
+    await wallet.save();
+    await piggyBank.save();
+
+    // 🔹 Notification kaydı
+    const Notification = require("../models/Notification");
+    await Notification.create({
+      userId,
+      type: "piggybank_deposit",
+      amount,
+      description: `"${piggyBank.name}" kumbarasına ₺${amount} eklendi.`,
+      status: "completed",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Para başarıyla kumbaraya eklendi",
+      piggyBank,
+      walletBalance: wallet.balance,
+    });
+  } catch (err) {
+    console.error("❌ Kumbara deposit hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 
 
 module.exports = router;
