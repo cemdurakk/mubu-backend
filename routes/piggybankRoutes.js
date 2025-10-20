@@ -598,7 +598,7 @@ router.post("/deposit", authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, message: "Cüzdan bulunamadı" });
     }
 
-    // 🎯 Yetersiz bakiye kontrolü
+    // 💰 Yetersiz bakiye kontrolü
     if (wallet.balance < amount) {
       return res.status(400).json({ success: false, message: "Yetersiz bakiye" });
     }
@@ -610,14 +610,17 @@ router.post("/deposit", authMiddleware, async (req, res) => {
     await wallet.save();
     await piggyBank.save();
 
-    // 🔹 Notification kaydı
-    const Notification = require("../models/Notification");
-    await Notification.create({
+    // 🔹 Transaction kaydı oluştur
+    const Transaction = require("../models/Transaction");
+    await Transaction.create({
       userId,
+      piggyBankId,
+      piggyBankName: piggyBank.name, // ✅ kumbara adı da kaydediliyor
       type: "piggybank_deposit",
       amount,
       description: `"${piggyBank.name}" kumbarasına ₺${amount} eklendi.`,
       status: "completed",
+      createdAt: new Date(),
     });
 
     return res.status(200).json({
@@ -631,7 +634,6 @@ router.post("/deposit", authMiddleware, async (req, res) => {
     return res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
-
 
 
 
