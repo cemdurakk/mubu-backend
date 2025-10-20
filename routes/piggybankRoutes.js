@@ -575,7 +575,7 @@ router.get("/detail/:piggyBankId", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Mevcut bir kumbaraya para ekle (cüzdandan kumbaraya transfer)
+// ✅ Kumbara içine para ekle (Wallet bakiyesi düşmeden)
 router.post("/deposit", authMiddleware, async (req, res) => {
   try {
     const { piggyBankId, amount } = req.body;
@@ -591,23 +591,8 @@ router.post("/deposit", authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
     }
 
-    // 🎯 Cüzdan kontrolü
-    const Wallet = require("../models/Wallet");
-    const wallet = await Wallet.findOne({ userId });
-    if (!wallet) {
-      return res.status(404).json({ success: false, message: "Cüzdan bulunamadı" });
-    }
-
-    // 💰 Yetersiz bakiye kontrolü
-    if (wallet.balance < amount) {
-      return res.status(400).json({ success: false, message: "Yetersiz bakiye" });
-    }
-
-    // 🔹 Güncellemeler
-    wallet.balance -= amount;
+    // 💰 Sadece kumbaraya ekleme yapılır, cüzdan bakiyesi değişmez
     piggyBank.currentAmount += amount;
-
-    await wallet.save();
     await piggyBank.save();
 
     // 🔹 Transaction kaydı oluştur
@@ -615,7 +600,8 @@ router.post("/deposit", authMiddleware, async (req, res) => {
     await Transaction.create({
       userId,
       piggyBankId,
-      piggyBankName: piggyBank.name, // ✅ kumbara adı da kaydediliyor
+      piggyBankName: piggyBank.name,
+      subWalletType: piggyBank.type || null,
       type: "piggybank_deposit",
       amount,
       description: `"${piggyBank.name}" kumbarasına ₺${amount} eklendi.`,
@@ -625,15 +611,15 @@ router.post("/deposit", authMiddleware, async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Para başarıyla kumbaraya eklendi",
+      message: "Kumbaraya para başarıyla eklendi",
       piggyBank,
-      walletBalance: wallet.balance,
     });
   } catch (err) {
     console.error("❌ Kumbara deposit hatası:", err);
     return res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
+
 
 
 
