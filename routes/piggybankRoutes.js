@@ -620,6 +620,57 @@ router.post("/deposit", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Kumbaradan cüzdana para çekme (Wallet bakiyesi değişmeden)
+router.post("/withdraw", authMiddleware, async (req, res) => {
+  try {
+    const { piggyBankId, amount } = req.body;
+    const userId = req.user.userId;
+
+    if (!piggyBankId || !amount) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi" });
+    }
+
+    // 🎯 Kumbara kontrolü
+    const piggyBank = await PiggyBank.findById(piggyBankId);
+    if (!piggyBank) {
+      return res.status(404).json({ success: false, message: "Kumbara bulunamadı" });
+    }
+
+    // 💰 Yetersiz bakiye kontrolü
+    if (piggyBank.currentAmount < amount) {
+      return res.status(400).json({ success: false, message: "Kumbarada yeterli bakiye yok" });
+    }
+
+    // 🔹 Kumbara bakiyesini azalt
+    piggyBank.currentAmount -= amount;
+    await piggyBank.save();
+
+    // 🔹 Transaction kaydı oluştur
+    const Transaction = require("../models/Transaction");
+    await Transaction.create({
+      userId,
+      piggyBankId,
+      piggyBankName: piggyBank.name,
+      subWalletType: piggyBank.type || null,
+      type: "piggybank_withdraw",
+      amount,
+      description: `"${piggyBank.name}" kumbarasından ₺${amount} çekildi.`,
+      status: "completed",
+      createdAt: new Date(),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Kumbaradan para başarıyla çekildi",
+      piggyBank,
+    });
+  } catch (err) {
+    console.error("❌ Kumbara withdraw hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 
 
 
