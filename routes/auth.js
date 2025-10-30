@@ -308,7 +308,14 @@ router.post("/login", async (req, res) => {
       status: "home",
       message: "Giriş başarılı",
       token,
-      user: { phone: user.phone },
+      user: {
+        phone: user.phone,
+        role: user.role,           // ✅ role eklendi
+        verified: user.verified,
+        pinCreated: user.pinCreated,
+        profileCompleted: user.profileCompleted,
+        firstLoginCompleted: user.firstLoginCompleted,
+      },
     });
 
   } catch (err) {
@@ -340,8 +347,12 @@ router.post("/login-pin", async (req, res) => {
       status: "home",
       message: "PIN ile giriş başarılı",
       token,
-      user: { phone: user.phone },
+      user: {
+        phone: user.phone,
+        role: user.role,   // ✅ burada da role eklendi
+      },
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ status: "error", message: "Sunucu hatası" });
