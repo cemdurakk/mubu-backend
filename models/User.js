@@ -40,6 +40,8 @@ const userSchema = new mongoose.Schema(
     // Abonelik (ebeveyn paketi için)
     subscriptionActive: { type: Boolean, default: false }, 
 
+    //Abonelik bitiş süresi
+    subscriptionExpiresAt: { type: Date, default: null },
     // SMS doğrulama alanları
     verificationCode: { type: String },
     verificationExpires: { type: Date },

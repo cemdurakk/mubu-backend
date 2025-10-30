@@ -25,6 +25,7 @@ const walletRoutes = require("./routes/walletRoutes");
 const profileRoutes = require("./routes/profile");// 👈 yeni ekledik
 const piggyBankRoutes = require("./routes/piggybankRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 
 // ✅ Routes use
 app.use("/api/auth", authRoutes);
@@ -35,6 +36,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // 👈 ye
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/piggybank", piggyBankRoutes);
 app.use("/api", transactionRoutes);
+app.use("/api/subscription", subscriptionRoutes);
 
 // ✅ Test endpoint
 app.get("/", (req, res) => {

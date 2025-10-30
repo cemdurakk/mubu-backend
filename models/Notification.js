@@ -15,6 +15,7 @@ const notificationSchema = new mongoose.Schema(
         "piggybank_create",
         "piggybank_invite",          // ✅ yeni eklendi
         "piggybank_invite_accepted", // ✅ yeni eklendi
+        "subscription_purchase" // ✅ Yeni eklendi
       ],
       required: true,
     },

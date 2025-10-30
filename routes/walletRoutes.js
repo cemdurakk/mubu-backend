@@ -343,5 +343,76 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Aile Yönetim Planı Satın Al (Ebeveyn Paketi)
+router.post("/purchase-plan", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { walletId, amount } = req.body;
+
+    // Paket fiyatı sabit 1000 TL (güvenlik için sabit tut)
+    const packagePrice = 1000;
+
+    const wallet = await Wallet.findOne({ _id: walletId, userId });
+    if (!wallet) {
+      return res.status(404).json({ success: false, message: "Cüzdan bulunamadı" });
+    }
+
+    if (wallet.balance < packagePrice) {
+      return res.status(400).json({ success: false, message: "Yetersiz bakiye" });
+    }
+
+    // Kullanıcının mevcut bilgilerini al
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    // Zaten parent ise yeniden satın alınamaz
+    if (user.role === "parent" && user.subscriptionActive) {
+      return res.status(400).json({ success: false, message: "Zaten aktif bir ebeveyn planınız var" });
+    }
+
+    // 💸 Bakiyeden düş
+    wallet.balance -= packagePrice;
+    await wallet.save();
+
+    // 👨‍👩‍👧 Kullanıcı rolünü değiştir
+    user.role = "parent";
+    user.subscriptionActive = true;
+    user.subscriptionExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 yıl
+    await user.save();
+
+    // 🔔 Notification kaydı oluştur
+    const notification = new Notification({
+      userId,
+      walletId,
+      type: "subscription_purchase",
+      amount: packagePrice,
+      description: "Aile Yönetim Planı (1 Yıl) satın alındı",
+      status: "completed",
+      paymentMethod: "wallet",
+      secureVerified: false,
+    });
+    await notification.save();
+
+    // (Opsiyonel) SMS bilgilendirmesi gönder
+    // await sendSMS(user.phone, "Tebrikler! Aile Yönetim Planı'nız 1 yıl boyunca aktif edildi.");
+
+    return res.json({
+      success: true,
+      message: "Aile Yönetim Planı başarıyla satın alındı",
+      newRole: user.role,
+      subscriptionActive: user.subscriptionActive,
+      expiresAt: user.subscriptionExpiresAt,
+      wallet,
+      notification,
+    });
+  } catch (err) {
+    console.error("❌ Paket satın alma hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 
 module.exports = router;
