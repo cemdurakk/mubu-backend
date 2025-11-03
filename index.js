@@ -38,7 +38,6 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/piggybank", piggyBankRoutes);
 app.use("/api", transactionRoutes);
 app.use("/api/subscription", subscriptionRoutes);
-app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/parent", parentRoutes);
 app.use("/api/allowance", allowanceRoutes);
 
