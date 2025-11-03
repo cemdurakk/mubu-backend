@@ -8,7 +8,15 @@ const Wallet = require("../models/Wallet");
 const bcrypt = require("bcryptjs");
 const { sendSms } = require("../services/smsService");
 
-
+async function generateUniqueInviteID() {
+  let inviteID;
+  let exists = true;
+  while (exists) {
+    inviteID = "#" + Math.floor(100000000 + Math.random() * 900000000);
+    exists = await User.exists({ inviteID });
+  }
+  return inviteID;
+}
 /**
  * 🎯 1. Aktif ebeveyn abonelik bilgisi
  * GET /api/parent/subscription
@@ -79,7 +87,9 @@ router.post("/add-child", authMiddleware, async (req, res) => {
       role: "child",
       parentIds,
       verified: false,
+      inviteID: await generateUniqueInviteID(), // ✅ Benzersiz davet kodu
     });
+
     await child.save();
 
     // 🔹 Çocuğa otomatik cüzdan oluştur
