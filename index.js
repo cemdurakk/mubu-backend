@@ -26,7 +26,8 @@ const profileRoutes = require("./routes/profile");// 👈 yeni ekledik
 const piggyBankRoutes = require("./routes/piggybankRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
-
+const parentRoutes = require("./routes/parentRoutes");
+const allowanceRoutes = require("./routes/allowanceRoutes");
 // ✅ Routes use
 app.use("/api/auth", authRoutes);
 app.use("/api/sms", smsRoutes);
@@ -37,6 +38,9 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/piggybank", piggyBankRoutes);
 app.use("/api", transactionRoutes);
 app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/admin", require("./routes/adminRoutes"));
+app.use("/api/parent", parentRoutes);
+app.use("/api/allowance", allowanceRoutes);
 
 // ✅ Test endpoint
 app.get("/", (req, res) => {
