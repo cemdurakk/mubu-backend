@@ -6,7 +6,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const Notification = require("../models/Notification");
 const Wallet = require("../models/Wallet");
 const bcrypt = require("bcryptjs");
-const { sendSms } = require("../services/smsService");
+const { sendSMS } = require("../services/smsService");
 
 async function generateUniqueInviteID() {
   let inviteID;
@@ -102,7 +102,7 @@ router.post("/add-child", authMiddleware, async (req, res) => {
     await child.save();
 
     // 🔹 SMS gönder
-    await sendSms(phone, `MUBU doğrulama kodunuz: ${verificationCode}`);
+    await sendSMS(phone, `MUBU doğrulama kodunuz: ${verificationCode}`);
 
     // 🔹 Çocuğa cüzdan oluştur
     const childWallet = new Wallet({
@@ -191,7 +191,7 @@ router.post("/send-child-code", authMiddleware, async (req, res) => {
     await child.save();
 
     // SMS gönder
-    await sendSms(child.phone, `MUBU doğrulama kodunuz: ${code}`);
+    await sendSMS(child.phone, `MUBU doğrulama kodunuz: ${code}`);
 
     res.json({
       success: true,
