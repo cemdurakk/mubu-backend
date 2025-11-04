@@ -256,14 +256,6 @@ router.post("/verify-child", authMiddleware, async (req, res) => {
     child.verificationExpires = null;
     await child.save();
 
-    // Bildirim
-    await Notification.create({
-      userId: parentId,
-      type: "child_verified",
-      description: `${child.name} isimli çocuk hesabı doğrulandı.`,
-      status: "success",
-    });
-
     res.json({
       success: true,
       message: `${child.name} hesabı başarıyla doğrulandı.`,
