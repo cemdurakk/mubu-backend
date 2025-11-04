@@ -13,9 +13,10 @@ const notificationSchema = new mongoose.Schema(
         "transfer",
         "spend",
         "piggybank_create",
-        "piggybank_invite",          // ✅ yeni eklendi
-        "piggybank_invite_accepted", // ✅ yeni eklendi
-        "subscription_purchase" // ✅ Yeni eklendi
+        "piggybank_invite",
+        "piggybank_invite_accepted",
+        "subscription_purchase",
+        "child_added", // ✅ yeni eklendi (ebeveyn çocuğu eklediğinde)
       ],
       required: true,
     },
@@ -30,7 +31,7 @@ const notificationSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "completed", "failed"],
+      enum: ["pending", "completed", "failed", "success"], // ✅ success eklendi
       default: "completed",
     },
 
