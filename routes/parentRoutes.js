@@ -79,7 +79,14 @@ router.post("/add-child", authMiddleware, async (req, res) => {
     const parentIds = [parentId];
     if (parent.wife_husband) parentIds.push(parent.wife_husband);
 
-    // 🔹 yeni çocuk oluştur
+    // 🔹 Benzersiz davet kodu
+    const inviteID = await generateUniqueInviteID();
+
+    // 🔹 6 haneli doğrulama kodu oluştur
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 dakika
+
+    // 🔹 Yeni çocuk oluştur
     const child = new User({
       name,
       phone,
@@ -87,12 +94,17 @@ router.post("/add-child", authMiddleware, async (req, res) => {
       role: "child",
       parentIds,
       verified: false,
-      inviteID: await generateUniqueInviteID(), // ✅ Benzersiz davet kodu
+      inviteID,
+      verificationCode,
+      verificationExpires,
     });
 
     await child.save();
 
-    // 🔹 Çocuğa otomatik cüzdan oluştur
+    // 🔹 SMS gönder
+    await sendSms(phone, `MUBU doğrulama kodunuz: ${verificationCode}`);
+
+    // 🔹 Çocuğa cüzdan oluştur
     const childWallet = new Wallet({
       userId: child._id,
       balance: 0,
@@ -104,7 +116,7 @@ router.post("/add-child", authMiddleware, async (req, res) => {
     parent.children.push(child._id);
     await parent.save();
 
-    // 🔹 eşi varsa, eşin children listesine de ekle
+    // 🔹 eşi varsa onun children listesine de ekle
     if (parent.wife_husband) {
       const spouse = await User.findById(parent.wife_husband);
       if (spouse) {
@@ -126,15 +138,15 @@ router.post("/add-child", authMiddleware, async (req, res) => {
     await Notification.create({
       userId: parentId,
       type: "child_added",
-      description: `${child.name} isimli çocuk hesabı oluşturuldu.`,
+      description: `${child.name} isimli çocuk hesabı oluşturuldu. Doğrulama kodu gönderildi.`,
       relatedUserId: child._id,
       status: "success",
     });
 
     res.json({
       success: true,
-      message: "Çocuk hesabı ve cüzdanı başarıyla oluşturuldu.",
-      child,
+      message: "Çocuk hesabı oluşturuldu ve doğrulama kodu gönderildi.",
+      childId: child._id,
     });
   } catch (err) {
     console.error("❌ Çocuk ekleme hatası:", err);
