@@ -330,14 +330,6 @@ router.post("/create-child-pin", authMiddleware, async (req, res) => {
     child.pinCreated = true;
     await child.save();
 
-    // 6️⃣ Bildirim oluştur
-    await Notification.create({
-      userId: parentId,
-      type: "child_pin_created",
-      description: `${child.name} isimli çocuk için PIN oluşturuldu.`,
-      status: "success",
-    });
-
     res.json({
       success: true,
       message: `${child.name} için PIN başarıyla oluşturuldu.`,
