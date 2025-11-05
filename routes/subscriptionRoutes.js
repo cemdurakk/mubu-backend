@@ -17,7 +17,7 @@ router.post("/purchase", authMiddleware, async (req, res) => {
     // 1️⃣ Kullanıcıyı getir
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı." });
     }
 
     // 2️⃣ Zaten aktif abonelik varsa engelle
@@ -39,7 +39,7 @@ router.post("/purchase", authMiddleware, async (req, res) => {
     const startDate = new Date();
     const endDate = new Date(Date.now() + planDuration);
 
-    const subscription = new ParentSubscription({
+    const subscription = await ParentSubscription.create({
       userId,
       spouseId: null,
       children: [],
@@ -49,7 +49,6 @@ router.post("/purchase", authMiddleware, async (req, res) => {
       price: planPrice,
       status: "active",
     });
-    await subscription.save();
 
     // 6️⃣ Kullanıcıyı ebeveyn rolüne geçir
     user.role = "parent";
@@ -95,14 +94,14 @@ router.post("/purchase", authMiddleware, async (req, res) => {
       await Notification.create([
         {
           userId,
-          type: "subscription_purchased",
+          type: "subscription_purchase",
           description: `Aile Yönetim Planı satın alındı. ${spouse.name || "Eş"} davet edildi.`,
           status: "success",
         },
         {
           userId: spouse._id,
           type: "spouse_invited",
-          description: `${user.name || "Eşiniz"} sizi Aile Yönetim Planına davet etti.`,
+          description: `${user.name || "Eşiniz"} sizi Aile Yönetim Planı'na davet etti.`,
           status: "pending",
         },
       ]);
@@ -110,7 +109,7 @@ router.post("/purchase", authMiddleware, async (req, res) => {
       // 8️⃣ Eş daveti yoksa yalnız satın alma bildirimi
       await Notification.create({
         userId,
-        type: "subscription_purchased",
+        type: "subscription_purchase",
         description: "Aile Yönetim Planı satın alındı (eş daveti olmadan).",
         status: "success",
       });
