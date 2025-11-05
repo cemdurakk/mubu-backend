@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
  * - Çocukları kimler (children)
  * - Başlangıç ve bitiş tarihleri (startDate / endDate)
  * - Abonelik aktif mi (isActive)
+ * - Fiyat, durum bilgisi (price / status)
  */
 
 const ParentSubscriptionSchema = new mongoose.Schema(
@@ -45,6 +46,8 @@ const ParentSubscriptionSchema = new mongoose.Schema(
       type: Boolean,
       default: true, // 1 yıl dolana kadar aktif
     },
+    price: { type: Number, default: 1000 },
+    status: { type: String, enum: ["active", "expired"], default: "active" },
   },
   { timestamps: true }
 );
