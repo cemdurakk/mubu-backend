@@ -17,6 +17,9 @@ const notificationSchema = new mongoose.Schema(
         "piggybank_invite_accepted",
         "subscription_purchase",
         "child_added", // ✅ yeni eklendi (ebeveyn çocuğu eklediğinde)
+        "child_verified",
+        "child_pin_created",
+        "child_profile_completed" // 📋 profil tamamlandı
       ],
       required: true,
     },
