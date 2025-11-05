@@ -152,15 +152,15 @@ router.post("/add-child", authMiddleware, async (req, res) => {
     });
 
     // 🔹 7️⃣ Başarılı yanıt
+// 🔹 7️⃣ Başarılı yanıt (Flutter ile uyumlu hale getirildi)
     res.json({
       success: true,
       message: "Çocuk hesabı oluşturuldu ve doğrulama kodu gönderildi.",
-      child: {
-        _id: child._id,
-        phone: child.phone,
-        name: profile.name,
-      },
+      childId: child._id, // ✅ Flutter burayı bekliyor
+      phone: child.phone,
+      name: profile.name,
     });
+    
   } catch (err) {
     console.error("❌ Çocuk ekleme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
