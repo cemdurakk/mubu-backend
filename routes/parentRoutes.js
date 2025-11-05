@@ -57,7 +57,7 @@ router.post("/add-child", authMiddleware, async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ebeveyn kontrolü
+    // 👨‍👩‍👧 Ebeveyn kontrolü
     const parent = await User.findById(parentId);
     if (!parent || parent.role !== "parent") {
       return res.status(403).json({
@@ -66,7 +66,7 @@ router.post("/add-child", authMiddleware, async (req, res) => {
       });
     }
 
-    // telefon kontrolü
+    // 📞 Telefon kontrolü
     const existing = await User.findOne({ phone });
     if (existing) {
       return res.status(400).json({
@@ -75,20 +75,19 @@ router.post("/add-child", authMiddleware, async (req, res) => {
       });
     }
 
-    // 🔹 Parent ID listesi oluştur (eş varsa onu da dahil et)
+    // 👨‍👩‍👧 Parent ID listesi (eş varsa dahil et)
     const parentIds = [parentId];
     if (parent.wife_husband) parentIds.push(parent.wife_husband);
 
     // 🔹 Benzersiz davet kodu
     const inviteID = await generateUniqueInviteID();
 
-    // 🔹 6 haneli doğrulama kodu oluştur
+    // 🔹 Doğrulama kodu
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 dakika
+    const verificationExpires = new Date(Date.now() + 5 * 60 * 1000);
 
-    // 🔹 Yeni çocuk oluştur
+    // 🔹 1️⃣ User kaydı oluştur (isim burada yok)
     const child = new User({
-      name,
       phone,
       password: hashedPassword,
       role: "child",
@@ -98,25 +97,35 @@ router.post("/add-child", authMiddleware, async (req, res) => {
       verificationCode,
       verificationExpires,
     });
-
     await child.save();
 
-    // 🔹 SMS gönder
-    await sendSMS(phone, `MUBU doğrulama kodunuz: ${verificationCode}`);
+    // 🔹 2️⃣ ProfileInfo kaydı oluştur (isim burada)
+    const ProfileInfo = require("../models/ProfileInfo");
+    const profile = new ProfileInfo({
+      userId: child._id,
+      name, // ✅ isim burada tutulur
+    });
+    await profile.save();
 
-    // 🔹 Çocuğa cüzdan oluştur
+    // Profile bağlantısını güncelle
+    child.profileInfoId = profile._id;
+    await child.save();
+
+    // 🔹 3️⃣ Çocuğa cüzdan oluştur
     const childWallet = new Wallet({
       userId: child._id,
       balance: 0,
-      name: `${child.name} Cüzdanı`,
+      name: `${name} Cüzdanı`,
     });
     await childWallet.save();
 
-    // 🔹 ebeveyn → children listesine ekle
+    // 🔹 4️⃣ SMS gönder
+    await sendSMS(phone, `MUBU doğrulama kodunuz: ${verificationCode}`);
+
+    // 🔹 5️⃣ Parent ve Subscription güncelle
     parent.children.push(child._id);
     await parent.save();
 
-    // 🔹 eşi varsa onun children listesine de ekle
     if (parent.wife_husband) {
       const spouse = await User.findById(parent.wife_husband);
       if (spouse) {
@@ -125,7 +134,6 @@ router.post("/add-child", authMiddleware, async (req, res) => {
       }
     }
 
-    // 🔹 ebeveynin aboneliğine ekle
     const subscription = await ParentSubscription.findOne({
       $or: [{ userId: parentId }, { spouseId: parentId }],
     });
@@ -134,25 +142,31 @@ router.post("/add-child", authMiddleware, async (req, res) => {
       await subscription.save();
     }
 
-    // 🔹 bildirim oluştur
+    // 🔹 6️⃣ Bildirim oluştur
     await Notification.create({
       userId: parentId,
       type: "child_added",
-      description: `${child.name} isimli çocuk hesabı oluşturuldu. Doğrulama kodu gönderildi.`,
+      description: `${name} isimli çocuk hesabı oluşturuldu ve doğrulama kodu gönderildi.`,
       relatedUserId: child._id,
       status: "success",
     });
 
+    // 🔹 7️⃣ Başarılı yanıt
     res.json({
       success: true,
       message: "Çocuk hesabı oluşturuldu ve doğrulama kodu gönderildi.",
-      childId: child._id,
+      child: {
+        _id: child._id,
+        phone: child.phone,
+        name: profile.name,
+      },
     });
   } catch (err) {
     console.error("❌ Çocuk ekleme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 /**
  * 🎯 2.1 Çocuk hesabı doğrulama kodu gönderme
@@ -163,7 +177,7 @@ router.post("/send-child-code", authMiddleware, async (req, res) => {
     const { childId } = req.body;
     const parentId = req.user.userId;
 
-    // 👶 Çocuğu bul
+    // 1️⃣ Çocuğu bul
     const child = await User.findById(childId);
     if (!child || child.role !== "child") {
       return res.status(404).json({
@@ -172,7 +186,7 @@ router.post("/send-child-code", authMiddleware, async (req, res) => {
       });
     }
 
-    // 👨‍👩‍👧 Ebeveynlik kontrolü
+    // 2️⃣ Ebeveynlik kontrolü
     const isParent = child.parentIds.some((id) => id.toString() === parentId.toString());
     if (!isParent) {
       return res.status(403).json({
@@ -181,27 +195,40 @@ router.post("/send-child-code", authMiddleware, async (req, res) => {
       });
     }
 
-    // 🔢 Kod üret
+    // 3️⃣ Çocuğun adını ProfileInfo'dan çek
+    const ProfileInfo = require("../models/ProfileInfo");
+    const profile = await ProfileInfo.findOne({ userId: child._id });
+
+    // 4️⃣ Kod üret ve kaydet
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 dk geçerli
 
-    // Kaydet
     child.verificationCode = code;
     child.verificationExpires = expires;
     await child.save();
 
-    // SMS gönder
+    // 5️⃣ SMS gönder
     await sendSMS(child.phone, `MUBU doğrulama kodunuz: ${code}`);
+
+    // 6️⃣ Bildirim kaydı
+    await Notification.create({
+      userId: parentId,
+      type: "child_code_sent",
+      description: `${profile?.name || "Çocuk"} için doğrulama kodu gönderildi.`,
+      relatedUserId: child._id,
+      status: "success",
+    });
 
     res.json({
       success: true,
-      message: `${child.name} için doğrulama kodu gönderildi.`,
+      message: `${profile?.name || "Çocuk"} için doğrulama kodu gönderildi.`,
     });
   } catch (err) {
     console.error("❌ Doğrulama kodu gönderme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 /**
  * 🎯 2.2 Çocuk doğrulama kodu kontrolü
@@ -212,6 +239,7 @@ router.post("/verify-child", authMiddleware, async (req, res) => {
     const { childId, code } = req.body;
     const parentId = req.user.userId;
 
+    // 1️⃣ Çocuğu bul
     const child = await User.findById(childId);
     if (!child || child.role !== "child") {
       return res.status(404).json({
@@ -220,6 +248,7 @@ router.post("/verify-child", authMiddleware, async (req, res) => {
       });
     }
 
+    // 2️⃣ Ebeveynlik kontrolü
     const isParent = child.parentIds.some((id) => id.toString() === parentId.toString());
     if (!isParent) {
       return res.status(403).json({
@@ -228,7 +257,7 @@ router.post("/verify-child", authMiddleware, async (req, res) => {
       });
     }
 
-    // Kod kontrolü
+    // 3️⃣ Kod kontrolü
     if (!child.verificationCode || !child.verificationExpires) {
       return res.status(400).json({
         success: false,
@@ -250,21 +279,36 @@ router.post("/verify-child", authMiddleware, async (req, res) => {
       });
     }
 
-    // ✅ Doğrulama başarılı
+    // 4️⃣ Doğrulama başarılı → güncelle
     child.verified = true;
     child.verificationCode = null;
     child.verificationExpires = null;
     await child.save();
 
+    // 5️⃣ Profil bilgisini al
+    const ProfileInfo = require("../models/ProfileInfo");
+    const profile = await ProfileInfo.findOne({ userId: child._id });
+
+    // 6️⃣ Bildirim oluştur
+    await Notification.create({
+      userId: parentId,
+      type: "child_verified",
+      description: `${profile?.name || "Çocuk"} hesabı başarıyla doğrulandı.`,
+      relatedUserId: child._id,
+      status: "success",
+    });
+
     res.json({
       success: true,
-      message: `${child.name} hesabı başarıyla doğrulandı.`,
+      message: `${profile?.name || "Çocuk"} hesabı başarıyla doğrulandı.`,
+      verified: true,
     });
   } catch (err) {
     console.error("❌ Çocuk doğrulama hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 /**
  * 🎯 2.3 Çocuk için PIN oluşturma
@@ -283,6 +327,7 @@ router.post("/create-child-pin", authMiddleware, async (req, res) => {
       });
     }
 
+    // 2️⃣ Ebeveyn & çocuk doğrulama
     const parent = await User.findById(parentId);
     const child = await User.findById(childId);
     if (!child || child.role !== "child") {
@@ -292,10 +337,7 @@ router.post("/create-child-pin", authMiddleware, async (req, res) => {
       });
     }
 
-    // 2️⃣ Ebeveynlik kontrolü
-    const isParent = child.parentIds.some(
-      (id) => id.toString() === parentId.toString()
-    );
+    const isParent = child.parentIds.some((id) => id.toString() === parentId.toString());
     if (!isParent) {
       return res.status(403).json({
         success: false,
@@ -318,7 +360,7 @@ router.post("/create-child-pin", authMiddleware, async (req, res) => {
     if (isRepeated) {
       return res.status(400).json({
         success: false,
-        message: "PIN çok fazla tekrarlayan rakam içeremez.",
+        message: "PIN 3 aynı rakamı arka arkaya içeremez.",
       });
     }
 
@@ -330,9 +372,24 @@ router.post("/create-child-pin", authMiddleware, async (req, res) => {
     child.pinCreated = true;
     await child.save();
 
+    // 6️⃣ Çocuğun adını ProfileInfo'dan çek
+    const ProfileInfo = require("../models/ProfileInfo");
+    const profile = await ProfileInfo.findOne({ userId: child._id });
+
+    // 7️⃣ Bildirim oluştur
+    await Notification.create({
+      userId: parentId,
+      type: "child_pin_created",
+      description: `${profile?.name || "Çocuk"} için PIN başarıyla oluşturuldu.`,
+      relatedUserId: child._id,
+      status: "success",
+    });
+
+    // 8️⃣ Cevap döndür
     res.json({
       success: true,
-      message: `${child.name} için PIN başarıyla oluşturuldu.`,
+      message: `${profile?.name || "Çocuk"} için PIN başarıyla oluşturuldu.`,
+      pinCreated: true,
     });
   } catch (err) {
     console.error("❌ Çocuk PIN oluşturma hatası:", err);
@@ -347,17 +404,10 @@ router.post("/create-child-pin", authMiddleware, async (req, res) => {
 router.post("/complete-child-profile", authMiddleware, async (req, res) => {
   try {
     const parentId = req.user.userId;
-    const {
-      childId,
-      tcNo,
-      email,
-      dob,
-      city,
-      district,
-    } = req.body;
+    const { childId, dob, tcNo, email, city, district, securityQuestion, securityAnswer } = req.body;
 
     // 1️⃣ Giriş kontrolü
-    if (!childId || !tcNo || !email || !dob || !city || !district) {
+    if (!childId || !dob || !tcNo || !email || !city || !district) {
       return res.status(400).json({
         success: false,
         message: "Lütfen tüm profil bilgilerini giriniz.",
@@ -367,6 +417,7 @@ router.post("/complete-child-profile", authMiddleware, async (req, res) => {
     // 2️⃣ Ebeveyn ve çocuk kontrolü
     const parent = await User.findById(parentId);
     const child = await User.findById(childId);
+
     if (!child || child.role !== "child") {
       return res.status(404).json({
         success: false,
@@ -374,9 +425,8 @@ router.post("/complete-child-profile", authMiddleware, async (req, res) => {
       });
     }
 
-    const isParent = child.parentIds.some(
-      (id) => id.toString() === parentId.toString()
-    );
+    // 👨‍👩‍👧 Ebeveynlik kontrolü
+    const isParent = child.parentIds.some((id) => id.toString() === parentId.toString());
     if (!isParent) {
       return res.status(403).json({
         success: false,
@@ -384,46 +434,54 @@ router.post("/complete-child-profile", authMiddleware, async (req, res) => {
       });
     }
 
-    // 3️⃣ ProfileInfo kaydını güncelle veya oluştur
+    // 3️⃣ ProfileInfo kaydını getir veya oluştur
     const ProfileInfo = require("../models/ProfileInfo");
     let profile = await ProfileInfo.findOne({ userId: child._id });
 
-    if (!profile) {
+    if (profile) {
+      profile.dob = dob;
+      profile.tcNo = tcNo;
+      profile.email = email;
+      profile.city = city;
+      profile.district = district;
+      await profile.save();
+    } else {
       profile = new ProfileInfo({
         userId: child._id,
+        dob,
         tcNo,
         email,
-        dob,
         city,
         district,
       });
-    } else {
-      profile.tcNo = tcNo;
-      profile.email = email;
-      profile.dob = dob;
-      profile.city = city;
-      profile.district = district;
+      await profile.save();
     }
 
-    await profile.save();
+    // 4️⃣ Güvenlik sorusu & cevabı kaydet (opsiyonel)
+    if (securityQuestion && securityAnswer) {
+      child.securityQuestion = securityQuestion;
+      child.securityAnswer = await bcrypt.hash(securityAnswer, 10);
+    }
 
-    // 4️⃣ Kullanıcıyı güncelle
+    // 5️⃣ Kullanıcı bilgilerini güncelle
     child.profileCompleted = true;
     child.profileInfoId = profile._id;
     await child.save();
 
-    // 5️⃣ Bildirim oluştur
+    // 6️⃣ Bildirim oluştur
     await Notification.create({
       userId: parentId,
       type: "child_profile_completed",
-      description: `${child.name} isimli çocuk için profil bilgileri tamamlandı.`,
+      description: `${profile.name || "Çocuk"} için profil bilgileri tamamlandı.`,
+      relatedUserId: child._id,
       status: "success",
     });
 
+    // 7️⃣ Yanıt
     res.json({
       success: true,
-      message: `${child.name} için profil bilgileri kaydedildi.`,
-      child,
+      message: `${profile.name || "Çocuk"} için profil bilgileri başarıyla kaydedildi.`,
+      profile,
     });
   } catch (err) {
     console.error("❌ Çocuk profil tamamlama hatası:", err);
@@ -504,30 +562,55 @@ router.post("/invite-spouse", authMiddleware, async (req, res) => {
 });
 
 /**
- * 🎯 4. Ebeveynin çocuklarını listele (cüzdan bakiyesiyle birlikte)
+ * 🎯 4. Ebeveynin çocuklarını listele (profil ve cüzdan bilgileriyle)
  * GET /api/parent/children
  */
 router.get("/children", authMiddleware, async (req, res) => {
   try {
     const parentId = req.user.userId;
 
-    // 👇 Artık parentIds kullanıyoruz
+    // 1️⃣ Parent’a bağlı çocukları getir
     const children = await User.find({ parentIds: parentId })
-      .select("name phone verified pinCreated profileCompleted")
+      .select("verified pinCreated profileCompleted firstLoginCompleted role")
       .lean();
 
-    // Her çocuğun cüzdanını getir
-    for (let child of children) {
-      const wallet = await Wallet.findOne({ userId: child._id });
-      child.walletBalance = wallet ? wallet.balance : 0;
+    if (!children.length) {
+      return res.json({
+        success: true,
+        children: [],
+        message: "Henüz kayıtlı bir çocuk bulunmuyor.",
+      });
     }
 
-    res.json({ success: true, children });
+    // 2️⃣ Tüm çocukların profil adını ve cüzdan bakiyesini getir
+    const ProfileInfo = require("../models/ProfileInfo");
+    const Wallet = require("../models/Wallet");
+
+    const enrichedChildren = await Promise.all(
+      children.map(async (child) => {
+        const profile = await ProfileInfo.findOne({ userId: child._id });
+        const wallet = await Wallet.findOne({ userId: child._id });
+
+        return {
+          id: child._id,
+          name: profile?.name || "İsimsiz Kullanıcı",
+          verified: child.verified,
+          pinCreated: child.pinCreated,
+          profileCompleted: child.profileCompleted,
+          firstLoginCompleted: child.firstLoginCompleted,
+          walletBalance: wallet ? wallet.balance : 0,
+          role: child.role,
+        };
+      })
+    );
+
+    res.json({ success: true, children: enrichedChildren });
   } catch (err) {
     console.error("❌ Çocukları getirme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 /**
  * 🎯 5. Harçlık gönderme (ebeveyn → çocuk)
@@ -630,9 +713,9 @@ router.get("/child-status/:childId", authMiddleware, async (req, res) => {
     const { childId } = req.params;
     const parentId = req.user.userId;
 
-    // 🔹 Çocuğu getir
+    // 1️⃣ Çocuğu getir
     const child = await User.findById(childId).select(
-      "name verified pinCreated profileCompleted firstLoginCompleted parentIds"
+      "verified pinCreated profileCompleted firstLoginCompleted parentIds"
     );
 
     if (!child) {
@@ -642,7 +725,7 @@ router.get("/child-status/:childId", authMiddleware, async (req, res) => {
       });
     }
 
-    // 🔹 Ebeveynlik kontrolü
+    // 2️⃣ Ebeveynlik kontrolü
     const isParent = child.parentIds?.some(
       (id) => id.toString() === parentId.toString()
     );
@@ -653,29 +736,35 @@ router.get("/child-status/:childId", authMiddleware, async (req, res) => {
       });
     }
 
-    // 🔹 Hangi adımda kaldığını belirle
+    // 3️⃣ Çocuğun profil adını ProfileInfo'dan çek
+    const ProfileInfo = require("../models/ProfileInfo");
+    const profile = await ProfileInfo.findOne({ userId: child._id });
+
+    // 4️⃣ Hangi adımda kaldığını belirle
     let nextStep = "completed";
     if (!child.verified) nextStep = "verify";
     else if (!child.pinCreated) nextStep = "createPin";
     else if (!child.profileCompleted) nextStep = "profileInfo";
 
+    // 5️⃣ Cevap dön
     res.json({
       success: true,
       child: {
         id: child._id,
-        name: child.name,
+        name: profile?.name || "İsimsiz Kullanıcı",
         verified: child.verified,
         pinCreated: child.pinCreated,
         profileCompleted: child.profileCompleted,
         firstLoginCompleted: child.firstLoginCompleted,
       },
-      nextStep, // 👈 verify | createPin | profileInfo | completed
+      nextStep, // verify | createPin | profileInfo | completed
     });
   } catch (err) {
     console.error("❌ Çocuk durum getirme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 // 📂 routes/parentRoutes.js
 router.get("/allowance-history", authMiddleware, async (req, res) => {
