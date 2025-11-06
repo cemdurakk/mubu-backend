@@ -19,7 +19,10 @@ const notificationSchema = new mongoose.Schema(
         "child_added", // ✅ yeni eklendi (ebeveyn çocuğu eklediğinde)
         "child_verified",
         "child_pin_created",
-        "child_profile_completed" // 📋 profil tamamlandı
+        "child_profile_completed", // 📋 profil tamamlandı
+        "child_code_sent",          // ✅ ebeveyn çocuğa doğrulama kodu gönderdi
+        "child_account_created",    // ✅ çocuk hesabı oluşturuldu
+        "allowance_sent",           // ✅ harçlık gönderildi
       ],
       required: true,
     },
