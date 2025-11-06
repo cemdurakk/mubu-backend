@@ -489,11 +489,8 @@ router.post("/complete-child-profile", authMiddleware, async (req, res) => {
   }
 });
 
-
-
-
 /**
- * 🎯 3. Eş daveti gönderme
+ * 🎯 3. Eş daveti gönderme (davet olarak)
  * POST /api/parent/invite-spouse
  */
 router.post("/invite-spouse", authMiddleware, async (req, res) => {
@@ -517,7 +514,7 @@ router.post("/invite-spouse", authMiddleware, async (req, res) => {
       });
     }
 
-    // eşlik zaten varsa reddet
+    // ✅ Zaten bir eş varsa veya daha önce davet edilmişse engelle
     if (parent.wife_husband || spouse.wife_husband) {
       return res.status(400).json({
         success: false,
@@ -525,41 +522,172 @@ router.post("/invite-spouse", authMiddleware, async (req, res) => {
       });
     }
 
-    // eşlik oluştur
-    parent.wife_husband = spouse._id;
-    spouse.wife_husband = parent._id;
-
-    // eş de parent rolüne geçsin
-    spouse.role = "parent";
-    spouse.subscriptionActive = true;
-    spouse.subscriptionExpiresAt = parent.subscriptionExpiresAt;
-
-    await parent.save();
-    await spouse.save();
-
-    // ebeveynin aboneliğini güncelle
-    const subscription = await ParentSubscription.findOne({ userId: parentId });
-    if (subscription) {
-      subscription.spouseId = spouse._id;
-      await subscription.save();
+    const alreadyInvited = spouse.pendingSpouseInvites?.some(
+      (inv) => inv.from.toString() === parentId && inv.status === "pending"
+    );
+    if (alreadyInvited) {
+      return res.status(400).json({
+        success: false,
+        message: "Bu kullanıcıya zaten bir davet gönderilmiş.",
+      });
     }
 
+    // 📩 Davet oluştur
+    spouse.pendingSpouseInvites.push({ from: parentId, status: "pending" });
+    parent.sentSpouseInvites.push({ to: spouse._id, status: "pending" });
+
+    await spouse.save();
+    await parent.save();
+
+    // 🔔 Bildirim oluştur
     await Notification.create({
-      userId: parentId,
-      type: "spouse_added",
-      description: `${spouse.name} başarıyla eş olarak eklendi.`,
-      status: "success",
+      userId: spouse._id,
+      type: "spouse_invite_sent",
+      description: `${parent.name || "Bir kullanıcı"} seni Aile Yönetim Planı'na davet etti.`,
+      relatedUserId: parentId,
+      status: "pending",
     });
 
     res.json({
       success: true,
-      message: "Eş başarıyla davet edildi ve ebeveyn rolüne geçirildi.",
+      message: `${spouse.name || "Kullanıcı"} için davet oluşturuldu.`,
     });
   } catch (err) {
-    console.error("❌ Eş daveti hatası:", err);
+    console.error("❌ Eş daveti gönderme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
+/**
+ * 🎯 3.1 Kullanıcının eş davetlerini listeleme
+ * GET /api/parent/spouse-invites
+ */
+router.get("/spouse-invites", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findById(userId)
+      .populate("pendingSpouseInvites.from", "name phone inviteID");
+
+    const invites = user.pendingSpouseInvites.filter(inv => inv.status === "pending");
+
+    res.json({
+      success: true,
+      invites,
+    });
+  } catch (err) {
+    console.error("❌ Eş davetlerini getirme hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası." });
+  }
+});
+
+
+/**
+ * 🎯 3.2 Eş davetini kabul etme
+ * POST /api/parent/accept-spouse-invite
+ */
+router.post("/accept-spouse-invite", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId; // davet edilen kişi
+    const { fromId } = req.body; // daveti gönderen kişi
+
+    const user = await User.findById(userId);
+    const inviter = await User.findById(fromId);
+
+    if (!user || !inviter) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı." });
+    }
+
+    // 🧩 Daveti bul
+    const invite = user.pendingSpouseInvites.find(
+      (inv) => inv.from.toString() === fromId && inv.status === "pending"
+    );
+    if (!invite) {
+      return res.status(400).json({ success: false, message: "Geçerli bir davet bulunamadı." });
+    }
+
+    // 🟢 Kabul edildi → eşleştir
+    user.wife_husband = inviter._id;
+    inviter.wife_husband = user._id;
+
+    user.role = "parent";
+    user.subscriptionActive = true;
+    user.subscriptionExpiresAt = inviter.subscriptionExpiresAt;
+
+    invite.status = "accepted";
+    inviter.sentSpouseInvites = inviter.sentSpouseInvites.map((inv) =>
+      inv.to.toString() === userId ? { ...inv, status: "accepted" } : inv
+    );
+
+    await user.save();
+    await inviter.save();
+
+    // 🔔 Bildirim oluştur
+    await Notification.create([
+      {
+        userId: inviter._id,
+        type: "spouse_invite_accepted",
+        description: `${user.name || "Kullanıcı"} davetini kabul etti.`,
+        relatedUserId: user._id,
+        status: "success",
+      },
+      {
+        userId: user._id,
+        type: "spouse_invite_joined",
+        description: `${inviter.name || "Kullanıcı"} ile eşleştirildin.`,
+        relatedUserId: inviter._id,
+        status: "success",
+      },
+    ]);
+
+    res.json({ success: true, message: "Davet kabul edildi, eşleştirme tamamlandı." });
+  } catch (err) {
+    console.error("❌ Eş davetini kabul etme hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası." });
+  }
+});
+
+
+/**
+ * 🎯 3.3 Eş davetini reddetme
+ * POST /api/parent/decline-spouse-invite
+ */
+router.post("/decline-spouse-invite", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { fromId } = req.body;
+
+    const user = await User.findById(userId);
+    const inviter = await User.findById(fromId);
+
+    if (!user || !inviter) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı." });
+    }
+
+    const invite = user.pendingSpouseInvites.find(
+      (inv) => inv.from.toString() === fromId && inv.status === "pending"
+    );
+
+    if (!invite) {
+      return res.status(400).json({ success: false, message: "Bekleyen davet bulunamadı." });
+    }
+
+    invite.status = "declined";
+    inviter.sentSpouseInvites = inviter.sentSpouseInvites.map((inv) =>
+      inv.to.toString() === userId ? { ...inv, status: "declined" } : inv
+    );
+
+    await user.save();
+    await inviter.save();
+
+    res.json({ success: true, message: "Davet reddedildi." });
+  } catch (err) {
+    console.error("❌ Eş davet reddetme hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası." });
+  }
+});
+
+
 
 /**
  * 🎯 4. Ebeveynin çocuklarını listele (profil ve cüzdan bilgileriyle)

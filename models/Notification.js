@@ -27,14 +27,18 @@ const notificationSchema = new mongoose.Schema(
       "child_code_sent",
       "child_account_created",
       "allowance_sent",
-      "spouse_invited",        // ✅ yeni eklendi
-      "spouse_accepted",       // 🔮 ileride kullanılabilir
+
+      // 💍 Eş (spouse) davet sistemi
+      "spouse_invite_sent",
+      "spouse_invite_accepted",
+      "spouse_invite_joined",
 
       // 💎 Abonelik
       "subscription_purchase",
     ],
     required: true,
   },
+
 
 
     // 💬 artık opsiyonel olacak, çünkü davetlerde para yok

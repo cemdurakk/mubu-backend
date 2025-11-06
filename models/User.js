@@ -32,6 +32,24 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    // 📩 Eş davetleri (bu kullanıcıya gelen davetler)
+    pendingSpouseInvites: [
+      {
+        from: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        status: { type: String, enum: ["pending", "accepted", "declined"], default: "pending" },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
+    // 📤 Kullanıcının gönderdiği eş davetleri
+    sentSpouseInvites: [
+      {
+        to: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        status: { type: String, enum: ["pending", "accepted", "declined"], default: "pending" },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
     // 👑 Ebeveyn paketi (abonelik) bağlantısı
     subscriptionId: {
       type: mongoose.Schema.Types.ObjectId,
