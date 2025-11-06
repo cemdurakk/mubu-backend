@@ -5,27 +5,37 @@ const notificationSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-    type: {
-      type: String,
-      enum: [
-        "deposit",
-        "withdraw",
-        "transfer",
-        "spend",
-        "piggybank_create",
-        "piggybank_invite",
-        "piggybank_invite_accepted",
-        "subscription_purchase",
-        "child_added", // ✅ yeni eklendi (ebeveyn çocuğu eklediğinde)
-        "child_verified",
-        "child_pin_created",
-        "child_profile_completed", // 📋 profil tamamlandı
-        "child_code_sent",          // ✅ ebeveyn çocuğa doğrulama kodu gönderdi
-        "child_account_created",    // ✅ çocuk hesabı oluşturuldu
-        "allowance_sent",           // ✅ harçlık gönderildi
-      ],
-      required: true,
-    },
+  type: {
+    type: String,
+    enum: [
+      // 💰 Finansal işlemler
+      "deposit",
+      "withdraw",
+      "transfer",
+      "spend",
+
+      // 🐷 Kumbaralar
+      "piggybank_create",
+      "piggybank_invite",
+      "piggybank_invite_accepted",
+
+      // 👨‍👩‍👧‍👦 Aile yönetimi
+      "child_added",
+      "child_verified",
+      "child_pin_created",
+      "child_profile_completed",
+      "child_code_sent",
+      "child_account_created",
+      "allowance_sent",
+      "spouse_invited",        // ✅ yeni eklendi
+      "spouse_accepted",       // 🔮 ileride kullanılabilir
+
+      // 💎 Abonelik
+      "subscription_purchase",
+    ],
+    required: true,
+  },
+
 
     // 💬 artık opsiyonel olacak, çünkü davetlerde para yok
     amount: { type: Number, default: 0 },
