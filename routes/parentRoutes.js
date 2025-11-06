@@ -591,6 +591,12 @@ router.get("/children", authMiddleware, async (req, res) => {
         const profile = await ProfileInfo.findOne({ userId: child._id });
         const wallet = await Wallet.findOne({ userId: child._id });
 
+        // 🔹 Durum hesapla
+        let status = "active";
+        if (!child.verified) status = "pendingVerification";
+        else if (!child.pinCreated) status = "pinNotCreated";
+        else if (!child.profileCompleted) status = "profileIncomplete";
+
         return {
           id: child._id,
           name: profile?.name || "İsimsiz Kullanıcı",
@@ -600,9 +606,11 @@ router.get("/children", authMiddleware, async (req, res) => {
           firstLoginCompleted: child.firstLoginCompleted,
           walletBalance: wallet ? wallet.balance : 0,
           role: child.role,
+          status, // ✅ Flutter tarafı bunu kullanacak
         };
       })
     );
+
 
     res.json({ success: true, children: enrichedChildren });
   } catch (err) {
