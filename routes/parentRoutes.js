@@ -596,18 +596,20 @@ router.get("/children", authMiddleware, async (req, res) => {
         if (!child.verified) status = "pendingVerification";
         else if (!child.pinCreated) status = "pinNotCreated";
         else if (!child.profileCompleted) status = "profileIncomplete";
-
+        
         return {
           id: child._id,
           name: profile?.name || "İsimsiz Kullanıcı",
+          phone: child.phone || "", // ✅ Flutter “verify” ekranına geçerken lazım
           verified: child.verified,
           pinCreated: child.pinCreated,
           profileCompleted: child.profileCompleted,
           firstLoginCompleted: child.firstLoginCompleted,
           walletBalance: wallet ? wallet.balance : 0,
           role: child.role,
-          status, // ✅ Flutter tarafı bunu kullanacak
+          status,
         };
+
       })
     );
 
