@@ -596,9 +596,9 @@ router.get("/children", authMiddleware, async (req, res) => {
         if (!child.verified) status = "pendingVerification";
         else if (!child.pinCreated) status = "pinNotCreated";
         else if (!child.profileCompleted) status = "profileIncomplete";
-        
+
         return {
-          id: child._id,
+          _id: child._id, // ✅ Flutter ile birebir eşleşsin
           name: profile?.name || "İsimsiz Kullanıcı",
           phone: child.phone || "", // ✅ Flutter “verify” ekranına geçerken lazım
           verified: child.verified,
