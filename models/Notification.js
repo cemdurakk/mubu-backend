@@ -35,6 +35,11 @@ const notificationSchema = new mongoose.Schema(
 
       // 💎 Abonelik
       "subscription_purchase",
+
+      "spouse_invite_sent",
+      "spouse_invite_accepted",
+      "spouse_invite_declined",
+      "spouse_linked", // ✅ yeni eklendi
     ],
     required: true,
   },
