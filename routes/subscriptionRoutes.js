@@ -57,7 +57,7 @@ router.post("/purchase", authMiddleware, async (req, res) => {
     user.subscriptionId = subscription._id;
     await user.save();
 
-    // 7️⃣ Eş daveti varsa işle
+    // 7️⃣ Eğer eş daveti varsa sadece davet gönder
     let spouse = null;
     if (inviteId) {
       spouse = await User.findOne({ inviteID: inviteId });
@@ -68,40 +68,37 @@ router.post("/purchase", authMiddleware, async (req, res) => {
         });
       }
 
-      // Eğer zaten bağlıysa reddet
-      if (spouse.wife_husband || user.wife_husband) {
+      // ❌ Doğrudan ilişki kurma, sadece davet oluştur
+      const alreadyInvited = spouse.pendingSpouseInvites?.some(
+        (inv) => inv.from.toString() === userId && inv.status === "pending"
+      );
+      if (alreadyInvited) {
         return res.status(400).json({
           success: false,
-          message: "Bu kullanıcı zaten bir eşe bağlı.",
+          message: "Bu kullanıcıya zaten bir davet gönderilmiş.",
         });
       }
 
-      // Eşlik oluştur
-      spouse.role = "parent";
-      spouse.wife_husband = user._id;
-      spouse.subscriptionActive = true;
-      spouse.subscriptionExpiresAt = endDate;
-      spouse.subscriptionId = subscription._id;
-      await spouse.save();
+      // 📩 Davet oluştur
+      spouse.pendingSpouseInvites.push({ from: userId, status: "pending" });
+      user.sentSpouseInvites.push({ to: spouse._id, status: "pending" });
 
-      user.wife_husband = spouse._id;
+      await spouse.save();
       await user.save();
 
-      subscription.spouseId = spouse._id;
-      await subscription.save();
-
-      // Bildirimler
+      // 🔔 Bildirimler
       await Notification.create([
         {
           userId,
           type: "subscription_purchase",
-          description: `Aile Yönetim Planı satın alındı. ${spouse.name || "Eş"} davet edildi.`,
+          description: `Aile Yönetim Planı satın alındı. ${spouse.name || "Kullanıcı"} davet edildi.`,
           status: "success",
         },
         {
           userId: spouse._id,
           type: "spouse_invite_sent",
-          description: `${user.name || "Eşiniz"} sizi Aile Yönetim Planı'na davet etti.`,
+          description: `${user.name || "Bir kullanıcı"} seni Aile Yönetim Planı'na davet etti.`,
+          relatedUserId: user._id,
           status: "pending",
         },
       ]);
@@ -119,14 +116,14 @@ router.post("/purchase", authMiddleware, async (req, res) => {
     res.json({
       success: true,
       message: spouse
-        ? `Aile Yönetim Planı alındı ve ${spouse.name || "Eş"} davet edildi.`
+        ? `Aile Yönetim Planı alındı ve ${spouse.name || "kullanıcı"} davet edildi.`
         : "Aile Yönetim Planı başarıyla satın alındı.",
       role: "parent",
       walletBalance: wallet.balance,
       subscription: {
         id: subscription._id,
         expiresAt: endDate,
-        spouseId: subscription.spouseId,
+        spouseId: spouse ? spouse._id : null,
         isActive: true,
       },
     });
