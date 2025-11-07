@@ -100,7 +100,7 @@ router.post("/purchase", authMiddleware, async (req, res) => {
         },
         {
           userId: spouse._id,
-          type: "spouse_invited",
+          type: "spouse_invite_sent",
           description: `${user.name || "Eşiniz"} sizi Aile Yönetim Planı'na davet etti.`,
           status: "pending",
         },
