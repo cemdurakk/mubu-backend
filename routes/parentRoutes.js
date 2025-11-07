@@ -583,12 +583,12 @@ router.get("/spouse-invites", authMiddleware, async (req, res) => {
 
 
 /**
- * 🎯 3.2 Eş davetini kabul etme
+ * 🎯 3.2 Eş davetini kabul etme (geliştirilmiş)
  * POST /api/parent/accept-spouse-invite
  */
 router.post("/accept-spouse-invite", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.userId; // davet edilen kişi
+    const userId = req.user.userId; // daveti kabul eden kişi
     const { fromId } = req.body; // daveti gönderen kişi
 
     const user = await User.findById(userId);
@@ -598,7 +598,7 @@ router.post("/accept-spouse-invite", authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı." });
     }
 
-    // 🧩 Daveti bul
+    // 🔍 Davet kontrolü
     const invite = user.pendingSpouseInvites.find(
       (inv) => inv.from.toString() === fromId && inv.status === "pending"
     );
@@ -606,23 +606,60 @@ router.post("/accept-spouse-invite", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: "Geçerli bir davet bulunamadı." });
     }
 
-    // 🟢 Kabul edildi → eşleştir
+    // ✅ 1️⃣ Daveti kabul et ve eşleştir
     user.wife_husband = inviter._id;
     inviter.wife_husband = user._id;
-
-    user.role = "parent";
-    user.subscriptionActive = true;
-    user.subscriptionExpiresAt = inviter.subscriptionExpiresAt;
-
     invite.status = "accepted";
+
     inviter.sentSpouseInvites = inviter.sentSpouseInvites.map((inv) =>
       inv.to.toString() === userId ? { ...inv, status: "accepted" } : inv
     );
 
+    // ✅ 2️⃣ Her iki kullanıcıyı parent yap
+    user.role = "parent";
+    inviter.role = "parent";
+
+    // ✅ 3️⃣ Abonelik bağlantısı oluştur / güncelle
+    const subscription = await ParentSubscription.findOne({
+      $or: [{ userId: inviter._id }, { spouseId: inviter._id }],
+    });
+
+    let activeSub;
+    if (subscription) {
+      // 🔹 Eş bilgisi yoksa doldur
+      if (!subscription.spouseId) subscription.spouseId = user._id;
+
+      // 🔹 Çocukları birleştir (varsa)
+      const allChildren = new Set([
+        ...subscription.children.map((id) => id.toString()),
+        ...(inviter.children || []).map((id) => id.toString()),
+        ...(user.children || []).map((id) => id.toString()),
+      ]);
+      subscription.children = [...allChildren];
+
+      activeSub = await subscription.save();
+    } else {
+      // 🔹 Eğer ana kullanıcıda abonelik yoksa yeni oluştur
+      const newSub = new ParentSubscription({
+        userId: inviter._id,
+        spouseId: user._id,
+        children: [...(inviter.children || []), ...(user.children || [])],
+      });
+      activeSub = await newSub.save();
+    }
+
+    // ✅ 4️⃣ Her iki kullanıcıya da abonelik bilgilerini yaz
+    user.subscriptionId = activeSub._id;
+    inviter.subscriptionId = activeSub._id;
+    user.subscriptionActive = true;
+    inviter.subscriptionActive = true;
+    user.subscriptionExpiresAt = activeSub.endDate;
+    inviter.subscriptionExpiresAt = activeSub.endDate;
+
     await user.save();
     await inviter.save();
 
-    // 🔔 Bildirim oluştur
+    // ✅ 5️⃣ Bildirimler
     await Notification.create([
       {
         userId: inviter._id,
@@ -633,19 +670,25 @@ router.post("/accept-spouse-invite", authMiddleware, async (req, res) => {
       },
       {
         userId: user._id,
-        type: "spouse_invite_joined",
+        type: "spouse_linked",
         description: `${inviter.name || "Kullanıcı"} ile eşleştirildin.`,
         relatedUserId: inviter._id,
         status: "success",
       },
     ]);
 
-    res.json({ success: true, message: "Davet kabul edildi, eşleştirme tamamlandı." });
+    return res.json({
+      success: true,
+      message: "Eşleştirme tamamlandı ve abonelik senkronize edildi.",
+      subscriptionId: activeSub._id,
+      expiresAt: activeSub.endDate,
+    });
   } catch (err) {
     console.error("❌ Eş davetini kabul etme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 
 /**
