@@ -17,6 +17,8 @@ async function generateUniqueInviteID() {
   }
   return inviteID;
 }
+
+
 /**
  * 🎯 1. Aktif ebeveyn abonelik bilgisi
  * GET /api/parent/subscription
@@ -28,9 +30,9 @@ router.get("/subscription", authMiddleware, async (req, res) => {
     const subscription = await ParentSubscription.findOne({
       $or: [{ userId }, { spouseId: userId }],
     })
-      .populate("userId", "name phone role")
-      .populate("spouseId", "name phone role")
-      .populate("children", "name phone role");
+      .populate("userId", "_id role") // sadece ID ve rol
+      .populate("spouseId", "_id role")
+      .populate("children", "_id role");
 
     if (!subscription) {
       return res.status(404).json({
@@ -39,12 +41,38 @@ router.get("/subscription", authMiddleware, async (req, res) => {
       });
     }
 
-    res.json({ success: true, subscription });
+    // ✅ Kullanıcı ve eş adlarını ProfileInfo'dan çek
+    const ProfileInfo = require("../models/ProfileInfo");
+    let userName = "";
+    let spouseName = "";
+
+    try {
+      const userProfile = await ProfileInfo.findOne({ userId: subscription.userId }).lean();
+      if (userProfile?.name) userName = userProfile.name;
+
+      if (subscription.spouseId) {
+        const spouseProfile = await ProfileInfo.findOne({ userId: subscription.spouseId }).lean();
+        if (spouseProfile?.name) spouseName = spouseProfile.name;
+      }
+    } catch (err) {
+      console.error("⚠️ Profil bilgisi çekilemedi:", err);
+    }
+
+    // ✅ Flutter tarafı için ek bilgilerle yanıt döndür
+    res.json({
+      success: true,
+      subscription,
+      userName,
+      spouseName,
+      purchaseDate:
+        subscription.createdAt || subscription.startDate || new Date(),
+    });
   } catch (err) {
     console.error("❌ Abonelik getirme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 /**
  * 🎯 2. Çocuk ekleme (yeni çocuk hesabı oluşturma)
