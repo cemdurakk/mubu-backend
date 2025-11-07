@@ -856,7 +856,7 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       });
     }
 
-    // 2️⃣ İlişki kontrolü
+    // 2️⃣ Ebeveyn-çocuk ilişkisini doğrula
     const isParent = child.parentIds.some((id) => id.toString() === parentId.toString());
     if (!isParent) {
       return res.status(403).json({
@@ -865,11 +865,15 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       });
     }
 
-    // 3️⃣ Cüzdan işlemleri
+    // 3️⃣ Cüzdanları bul
     const parentWallet = await Wallet.findOne({ userId: parentId });
     const childWallet = await Wallet.findOne({ userId: childId });
+
     if (!parentWallet || !childWallet) {
-      return res.status(404).json({ success: false, message: "Cüzdan bilgileri bulunamadı." });
+      return res.status(404).json({
+        success: false,
+        message: "Cüzdan bilgileri bulunamadı.",
+      });
     }
 
     if (parentWallet.balance < sendAmount) {
@@ -879,40 +883,51 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       });
     }
 
+    // 4️⃣ İsimleri ProfileInfo'dan çek
+    const ProfileInfo = require("../models/ProfileInfo");
+    const parentProfile = await ProfileInfo.findOne({ userId: parentId });
+    const childProfile = await ProfileInfo.findOne({ userId: childId });
+
+    const parentName = parentProfile?.name || "Ebeveyn";
+    const childName = childProfile?.name || "Çocuk";
+
+    // 5️⃣ Bakiye güncelle
     parentWallet.balance -= sendAmount;
     childWallet.balance += sendAmount;
-
     await parentWallet.save();
     await childWallet.save();
 
-    // 4️⃣ Bildirim oluştur
+    // 6️⃣ Bildirim oluştur (her iki tarafa)
     await Notification.create([
       {
         userId: parentId,
         type: "allowance_sent",
-        description: `${child.name} isimli çocuğa ₺${sendAmount} harçlık gönderildi.`,
+        description: `${childName} isimli çocuğa ₺${sendAmount} harçlık gönderildi.`,
         relatedUserId: childId,
         status: "success",
       },
       {
         userId: childId,
         type: "allowance_received",
-        description: `${parent.name} size ₺${sendAmount} harçlık gönderdi.`,
+        description: `${parentName} size ₺${sendAmount} harçlık gönderdi.`,
         relatedUserId: parentId,
         status: "success",
       },
     ]);
 
+    // 7️⃣ Başarılı yanıt
     res.json({
       success: true,
-      message: `${child.name} isimli çocuğa ₺${sendAmount} harçlık başarıyla gönderildi.`,
+      message: `${childName} isimli çocuğa ₺${sendAmount} harçlık başarıyla gönderildi.`,
       newBalance: parentWallet.balance,
+      childNewBalance: childWallet.balance,
     });
   } catch (err) {
     console.error("❌ Harçlık gönderme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 /**
  * 🎯 6. Çocuğun kayıt aşamasını getir (hangi adımda kaldı)
