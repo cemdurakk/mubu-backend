@@ -18,9 +18,8 @@ async function generateUniqueInviteID() {
   return inviteID;
 }
 
-
 /**
- * 🎯 1. Aktif ebeveyn abonelik bilgisi
+ * 🎯 Aktif ebeveyn abonelik bilgisi
  * GET /api/parent/subscription
  */
 router.get("/subscription", authMiddleware, async (req, res) => {
@@ -30,7 +29,7 @@ router.get("/subscription", authMiddleware, async (req, res) => {
     const subscription = await ParentSubscription.findOne({
       $or: [{ userId }, { spouseId: userId }],
     })
-      .populate("userId", "_id role") // sadece ID ve rol
+      .populate("userId", "_id role")
       .populate("spouseId", "_id role")
       .populate("children", "_id role");
 
@@ -41,24 +40,25 @@ router.get("/subscription", authMiddleware, async (req, res) => {
       });
     }
 
-    // ✅ Kullanıcı ve eş adlarını ProfileInfo'dan çek
     const ProfileInfo = require("../models/ProfileInfo");
     let userName = "";
     let spouseName = "";
 
-    try {
-      const userProfile = await ProfileInfo.findOne({ userId: subscription.userId }).lean();
-      if (userProfile?.name) userName = userProfile.name;
+    // 💡 1️⃣ Eğer subscription.spouseId doluysa (davet edilen kişi bu)
+    if (subscription.spouseId) {
+      const myProfile = await ProfileInfo.findOne({ userId: subscription.spouseId }).lean();
+      const spouseProfile = await ProfileInfo.findOne({ userId: subscription.userId }).lean();
 
-      if (subscription.spouseId) {
-        const spouseProfile = await ProfileInfo.findOne({ userId: subscription.spouseId }).lean();
-        if (spouseProfile?.name) spouseName = spouseProfile.name;
-      }
-    } catch (err) {
-      console.error("⚠️ Profil bilgisi çekilemedi:", err);
+      userName = myProfile?.name || "";
+      spouseName = spouseProfile?.name || "";
+    }
+    // 💡 2️⃣ Eğer subscription.spouseId boşsa (davet gönderen kişi bu)
+    else {
+      const myProfile = await ProfileInfo.findOne({ userId: subscription.userId }).lean();
+      userName = myProfile?.name || "";
+      spouseName = "";
     }
 
-    // ✅ Flutter tarafı için ek bilgilerle yanıt döndür
     res.json({
       success: true,
       subscription,
@@ -72,6 +72,7 @@ router.get("/subscription", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
 
 
 /**
