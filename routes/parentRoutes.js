@@ -904,14 +904,14 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       {
         userId: parentId,
         type: "allowance_sent",
-        description: `${childName} isimli çocuğa ₺${sendAmount} harçlık gönderildi.`,
+        description: `${childName} isimli çocuğa ₺${sendAmount.toFixed(2)} harçlık gönderildi.`,
         relatedUserId: childId,
         status: "success",
       },
       {
         userId: childId,
         type: "allowance_received",
-        description: `${parentName} size ₺${sendAmount} harçlık gönderdi.`,
+        description: `${parentName} size ₺${sendAmount.toFixed(2)} harçlık gönderdi.`,
         relatedUserId: parentId,
         status: "success",
       },
@@ -923,12 +923,11 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       parentId: parentId, // 🔹 userId değil, parentId kullanılmalı
       walletId: parentWallet._id, // 🔹 walletId değişkeni yoktu, parentWallet’tan alıyoruz
       amount: sendAmount, // 🔹 sendAmount değişkenini kullanalım
-      note: `₺${sendAmount} harçlık gönderildi.`,
+      note: `₺${sendAmount.toFixed(2)} harçlık gönderildi.`,
     });
 
 
-    console.log(`📘 Harçlık geçmişi kaydedildi: Parent(${parentId}) → Child(${childId}) ₺${sendAmount}`);
-
+    console.log(`📘 Harçlık geçmişi kaydedildi: Parent(${parentId}) → Child(${childId}) ₺${sendAmount.toFixed(2)}`);
 
     // 7️⃣ Başarılı yanıt
     res.json({
