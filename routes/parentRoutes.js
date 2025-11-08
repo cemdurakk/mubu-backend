@@ -7,6 +7,7 @@ const Notification = require("../models/Notification");
 const Wallet = require("../models/Wallet");
 const bcrypt = require("bcryptjs");
 const { sendSMS } = require("../services/smsService");
+const AllowanceHistory = require("../models/AllowanceHistory");
 
 async function generateUniqueInviteID() {
   let inviteID;
@@ -831,6 +832,7 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
     const parentId = req.user.userId;
     const { childId, amount } = req.body;
     const sendAmount = Number(amount);
+    const AllowanceHistory = require("../models/AllowanceHistory");
 
     // 1️⃣ Kontroller
     if (!childId || !sendAmount || sendAmount <= 0) {
@@ -915,6 +917,20 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       },
     ]);
 
+    // ✅ Harçlık geçmişine kaydet
+    await AllowanceHistory.create({
+      childId: childId,
+      parentId: parentId,
+      walletId: parentWallet._id,
+      amount: sendAmount,
+      note: `₺${sendAmount} harçlık gönderildi.`,
+    });
+
+    console.log(`📘 Harçlık geçmişi kaydedildi: Parent(${parentId}) → Child(${childId}) ₺${sendAmount}`);
+
+
+    console.log(`📘 Harçlık geçmişi kaydedildi: Parent(${userId}) → Child(${childId}) ₺${amount}`);
+
     // 7️⃣ Başarılı yanıt
     res.json({
       success: true,
@@ -990,24 +1006,50 @@ router.get("/child-status/:childId", authMiddleware, async (req, res) => {
   }
 });
 
-
-// 📂 routes/parentRoutes.js
+// 👨‍👩‍👧 Ebeveynin gönderdiği tüm harçlıklar
 router.get("/allowance-history", authMiddleware, async (req, res) => {
   try {
     const parentId = req.user.userId;
-    const notifications = await Notification.find({
-      userId: parentId,
-      type: "allowance_sent",
-    })
-      .populate("relatedUserId", "name phone")
-      .sort({ createdAt: -1 });
+    const AllowanceHistory = require("../models/AllowanceHistory");
 
-    res.json({ success: true, notifications });
+    const history = await AllowanceHistory.find({ parentId })
+      .populate("childId", "name phone")
+      .sort({ sentAt: -1 });
+
+    res.json({
+      success: true,
+      count: history.length,
+      history,
+    });
   } catch (err) {
-    console.error("❌ Harçlık geçmişi hatası:", err);
-    res.status(500).json({ success: false, message: "Sunucu hatası." });
+    console.error("❌ Ebeveyn harçlık geçmişi hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
+
+
+// 👶 Çocuğun aldığı harçlık geçmişi
+router.get("/allowance-history/:childId", authMiddleware, async (req, res) => {
+  try {
+    const { childId } = req.params;
+    const AllowanceHistory = require("../models/AllowanceHistory");
+
+    const history = await AllowanceHistory.find({ childId })
+      .populate("parentId", "name phone")
+      .sort({ sentAt: -1 });
+
+    res.json({
+      success: true,
+      count: history.length,
+      history,
+    });
+  } catch (err) {
+    console.error("❌ Çocuk harçlık geçmişi hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 
 
 module.exports = router;
