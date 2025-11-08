@@ -9,6 +9,7 @@ const bcrypt = require("bcryptjs");
 const { sendSMS } = require("../services/smsService");
 const AllowanceHistory = require("../models/AllowanceHistory");
 const SuggestedTask = require("../models/SuggestedTask");
+const Task = require("../models/Task");
 
 
 async function generateUniqueInviteID() {
@@ -1049,11 +1050,9 @@ router.get("/allowance-history/:childId", authMiddleware, async (req, res) => {
   }
 });
 
+
 // ✅ Yeni görev oluşturma
-const Task = require("../models/Task");
-
 router.post("/tasks/add", authMiddleware, async (req, res) => {
-
   try {
     const parentId = req.user.userId;
     const { childId, title, description, rewardAmount } = req.body;
@@ -1065,50 +1064,52 @@ router.post("/tasks/add", authMiddleware, async (req, res) => {
       });
     }
 
-    const parent = await User.findById(parentId);
-    const child = await User.findById(childId);
+    const [parent, child] = await Promise.all([
+      User.findById(parentId),
+      User.findById(childId),
+    ]);
+
     if (!child || child.role !== "child") {
-      return res.status(404).json({
-        success: false,
-        message: "Çocuk hesabı bulunamadı.",
-      });
+      return res.status(404).json({ success: false, message: "Çocuk hesabı bulunamadı." });
     }
 
-    // Çocuğun ebeveyni mi kontrol et
+    // 👨‍👩‍👧 Ebeveyn doğrulaması
     const isParent = child.parentIds.some((id) => id.toString() === parentId.toString());
     if (!isParent) {
-      return res.status(403).json({
-        success: false,
-        message: "Bu çocuk size bağlı değil.",
-      });
+      return res.status(403).json({ success: false, message: "Bu çocuk size bağlı değil." });
     }
 
-    // Yeni görev oluştur
+    // 🆕 Görevi oluştur
     const task = await Task.create({
       parentId,
       childId,
-      title,
-      description,
+      title: title.trim(),
+      description: description?.trim() || "",
       rewardAmount: rewardAmount || 0,
     });
 
-    // Çocuğun aktif görev listesine ekle
-    child.activeTasks.push(task._id);
-    await child.save();
+    // 👶 Çocuğun aktif görevlerine ekle
+    await User.findByIdAndUpdate(childId, { $push: { activeTasks: task._id } });
 
-    // Bildirim oluştur
-    await Notification.create({
-      userId: parentId,
-      type: "task_created",
-      description: `${title} görevi ${rewardAmount ? `₺${rewardAmount}` : ""} ödülle oluşturuldu.`,
-      status: "success",
-    });
+    // 🔔 Bildirimler (ebeveyn + çocuk)
+    await Promise.all([
+      Notification.create({
+        userId: parentId,
+        type: "task_created",
+        description: `${title} görevi ${rewardAmount ? `₺${rewardAmount}` : ""} ödülle oluşturuldu.`,
+        amount: rewardAmount || 0,
+        status: "success",
+      }),
+      Notification.create({
+        userId: childId,
+        type: "task_assigned",
+        description: `${title} görevi sana atandı.`,
+        amount: rewardAmount || 0,
+        status: "pending",
+      }),
+    ]);
 
-    res.json({
-      success: true,
-      message: "Görev başarıyla oluşturuldu.",
-      task,
-    });
+    res.json({ success: true, message: "Görev başarıyla oluşturuldu.", task });
   } catch (err) {
     console.error("❌ Görev oluşturma hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
@@ -1121,15 +1122,9 @@ router.get("/tasks/:childId", authMiddleware, async (req, res) => {
     const { childId } = req.params;
     const parentId = req.user.userId;
 
-    const tasks = await Task.find({ childId, parentId })
-      .sort({ createdAt: -1 })
-      .lean();
+    const tasks = await Task.find({ childId, parentId }).sort({ createdAt: -1 }).lean();
 
-    res.json({
-      success: true,
-      count: tasks.length,
-      tasks,
-    });
+    res.json({ success: true, count: tasks.length, tasks });
   } catch (err) {
     console.error("❌ Görev listeleme hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
@@ -1143,59 +1138,55 @@ router.post("/tasks/complete/:taskId", authMiddleware, async (req, res) => {
     const parentId = req.user.userId;
 
     const task = await Task.findById(taskId);
-    if (!task) {
-      return res.status(404).json({ success: false, message: "Görev bulunamadı." });
-    }
-
-    if (task.status === "completed") {
+    if (!task) return res.status(404).json({ success: false, message: "Görev bulunamadı." });
+    if (task.status === "completed")
       return res.status(400).json({ success: false, message: "Bu görev zaten tamamlandı." });
-    }
 
-    // Ödül gönder
-    if (task.rewardAmount > 0) {
-      const parentWallet = await Wallet.findOne({ userId: parentId });
-      const childWallet = await Wallet.findOne({ userId: task.childId });
+    const [parentWallet, childWallet] = await Promise.all([
+      Wallet.findOne({ userId: parentId }),
+      Wallet.findOne({ userId: task.childId }),
+    ]);
 
-      if (!parentWallet || !childWallet) {
-        return res.status(404).json({ success: false, message: "Cüzdan bilgileri bulunamadı." });
-      }
+    if (!parentWallet || !childWallet)
+      return res.status(404).json({ success: false, message: "Cüzdan bilgileri bulunamadı." });
 
-      if (parentWallet.balance < task.rewardAmount) {
-        return res.status(400).json({ success: false, message: "Yetersiz bakiye." });
-      }
+    if (parentWallet.balance < task.rewardAmount)
+      return res.status(400).json({ success: false, message: "Yetersiz bakiye." });
 
-      parentWallet.balance -= task.rewardAmount;
-      childWallet.balance += task.rewardAmount;
-      await parentWallet.save();
-      await childWallet.save();
-    }
+    // 💸 Ödeme işlemi
+    parentWallet.balance -= task.rewardAmount;
+    childWallet.balance += task.rewardAmount;
+    await Promise.all([parentWallet.save(), childWallet.save()]);
 
-    // Görevi tamamlandı olarak işaretle
+    // ✅ Görevi tamamlandı olarak işaretle
     task.status = "completed";
     task.completedAt = new Date();
     await task.save();
 
-    // Çocuğun aktif görev listesinden çıkar
-    const child = await User.findById(task.childId);
-    child.activeTasks = child.activeTasks.filter(
-      (id) => id.toString() !== task._id.toString()
-    );
-    await child.save();
-
-    // Bildirim oluştur
-    await Notification.create({
-      userId: parentId,
-      type: "task_completed",
-      description: `${task.title} görevi tamamlandı ve ödül gönderildi.`,
-      amount: task.rewardAmount,
-      status: "success",
+    // 👶 Çocuğun aktif görev listesinden çıkar
+    await User.findByIdAndUpdate(task.childId, {
+      $pull: { activeTasks: task._id },
     });
 
-    res.json({
-      success: true,
-      message: "Görev tamamlandı, ödül gönderildi.",
-      task,
-    });
+    // 🔔 Bildirim (ebeveyn + çocuk)
+    await Promise.all([
+      Notification.create({
+        userId: parentId,
+        type: "task_completed",
+        description: `${task.title} görevi tamamlandı ve ödül gönderildi.`,
+        amount: task.rewardAmount,
+        status: "success",
+      }),
+      Notification.create({
+        userId: task.childId,
+        type: "allowance_received",
+        description: `${task.title} görevi tamamlandı. ₺${task.rewardAmount} ödül hesabına aktarıldı.`,
+        amount: task.rewardAmount,
+        status: "success",
+      }),
+    ]);
+
+    res.json({ success: true, message: "Görev tamamlandı, ödül gönderildi.", task });
   } catch (err) {
     console.error("❌ Görev tamamlama hatası:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası." });
@@ -1215,6 +1206,7 @@ router.get("/suggested-tasks", authMiddleware, async (req, res) => {
 
     const tasks = await SuggestedTask.find(filter)
       .sort({ category: 1, createdAt: -1 })
+      .select("category title description rewardAmount")
       .lean();
 
     res.json({
@@ -1227,8 +1219,6 @@ router.get("/suggested-tasks", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
-
-
 
 
 

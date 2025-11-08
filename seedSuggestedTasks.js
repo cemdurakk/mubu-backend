@@ -1,3 +1,4 @@
+// 📂 seedSuggestedTasks.js
 const mongoose = require("mongoose");
 const SuggestedTask = require("./models/SuggestedTask");
 require("dotenv").config();
@@ -43,7 +44,7 @@ const tasks = [
   { category: "Spor", title: "Sabah koşusu yap", description: "10 dakika koş", rewardAmount: 20 },
   { category: "Spor", title: "Esneme hareketleri yap", description: "5 dk esneme rutini uygula", rewardAmount: 10 },
   { category: "Spor", title: "Bisiklet sür", description: "30 dk bisiklete bin", rewardAmount: 25 },
-  { category: "Spor", title: "Top oyna", description: "Arkadaşlarınla oyun oyna", rewardAmount: 10 },
+  { category: "Spor", title: "Top oyna", description: "Arkadaşlarınla top oyna", rewardAmount: 10 },
   { category: "Spor", title: "Merdiven çık", description: "Asansör yerine merdiven kullan", rewardAmount: 5 },
   { category: "Spor", title: "Şınav çek", description: "10 şınav çek", rewardAmount: 10 },
   { category: "Spor", title: "Mekik çek", description: "20 mekik çek", rewardAmount: 10 },
@@ -112,17 +113,16 @@ const tasks = [
   { category: "Yardım", title: "Masanın tozunu al", description: "Yemek masasını sil", rewardAmount: 5 },
 ];
 
-const seed = async () => {
+(async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     await SuggestedTask.deleteMany();
     await SuggestedTask.insertMany(tasks);
     console.log(`✅ ${tasks.length} adet önerilen görev başarıyla eklendi.`);
-    process.exit();
+    await mongoose.disconnect();
+    process.exit(0);
   } catch (err) {
     console.error("❌ Seed hatası:", err);
     process.exit(1);
   }
-};
-
-seed();
+})();

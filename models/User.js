@@ -1,38 +1,37 @@
+// 📂 models/User.js
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
+    // 👤 Temel bilgiler
     name: { type: String, required: false },
     phone: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     pin: { type: String },
 
-    // Güvenlik sorusu
+    // 🔐 Güvenlik bilgileri
     securityQuestion: { type: String, required: false },
     securityAnswer: { type: String, required: false },
 
-    // Kullanıcı rolü
+    // 🧩 Kullanıcı rolü
     role: {
       type: String,
       enum: ["individual", "parent", "child"],
       default: "individual",
     },
 
-    /**
-     * 👨‍👩‍👧 Parent–Child ilişkisi
-     * Artık çocuklar birden fazla ebeveyne bağlı olabilir.
-     */
+    // 👨‍👩‍👧 Parent–Child ilişkileri
     parentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
     children: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
 
-    // 👩‍❤️‍👨 Eş ilişkisi
+    // 💍 Eş ilişkisi
     wife_husband: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
 
-    // 📩 Eş davetleri (bu kullanıcıya gelen davetler)
+    // 📩 Eş davetleri (gelen)
     pendingSpouseInvites: [
       {
         from: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -41,7 +40,7 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // 📤 Kullanıcının gönderdiği eş davetleri
+    // 📤 Gönderilen eş davetleri
     sentSpouseInvites: [
       {
         to: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -50,19 +49,19 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // 👑 Ebeveyn paketi (abonelik) bağlantısı
+    // 🪙 Ebeveyn paketi – abonelik bilgileri
     subscriptionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ParentSubscription",
       default: null,
     },
-
-    // Abonelik durumu
     subscriptionActive: { type: Boolean, default: false },
     subscriptionExpiresAt: { type: Date, default: null },
+
+    // 💰 Harçlık geçmişi
     allowanceHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Notification" }],
 
-        // 🟣 Görev sistemi – çocuk aktif görevleri
+    // 🟣 Görev sistemi
     activeTasks: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -71,26 +70,28 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // Kullanıcı durum alanları
+    // 🔵 Kullanıcı durum alanları
     verified: { type: Boolean, default: false },
     pinCreated: { type: Boolean, default: false },
     profileCompleted: { type: Boolean, default: false },
     firstLoginCompleted: { type: Boolean, default: false },
     deviceId: { type: String, default: null },
 
-    // Davet kodu (örnek: MUBU12345)
+    // 📛 Davet kodu
     inviteID: { type: String, unique: true },
 
+    // 👤 Profil referansı
     profileInfoId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ProfileInfo",
       default: null,
     },
 
-    // SMS doğrulama alanları
+    // 🔢 SMS doğrulama
     verificationCode: { type: String },
     verificationExpires: { type: Date },
 
+    // 🕓 Kayıt tarihi
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
