@@ -28,6 +28,8 @@ const transactionRoutes = require("./routes/transactionRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const parentRoutes = require("./routes/parentRoutes");
 const allowanceRoutes = require("./routes/allowanceRoutes");
+const childRoutes = require("./routes/childRoutes");
+
 // ✅ Routes use
 app.use("/api/auth", authRoutes);
 app.use("/api/sms", smsRoutes);
@@ -40,6 +42,8 @@ app.use("/api", transactionRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/parent", parentRoutes);
 app.use("/api/allowance", allowanceRoutes);
+app.use("/api/child", childRoutes);
+
 
 // ✅ Test endpoint
 app.get("/", (req, res) => {

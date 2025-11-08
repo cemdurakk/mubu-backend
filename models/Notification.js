@@ -46,6 +46,7 @@ const notificationSchema = new mongoose.Schema(
         "task_created",
         "task_assigned",
         "task_completed",
+        "allowance_request",
       ],
       required: true,
     },
