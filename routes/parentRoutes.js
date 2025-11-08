@@ -930,8 +930,6 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
     console.log(`📘 Harçlık geçmişi kaydedildi: Parent(${parentId}) → Child(${childId}) ₺${sendAmount}`);
 
 
-    console.log(`📘 Harçlık geçmişi kaydedildi: Parent(${userId}) → Child(${childId}) ₺${amount}`);
-
     // 7️⃣ Başarılı yanıt
     res.json({
       success: true,
