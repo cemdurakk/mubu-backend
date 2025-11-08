@@ -920,11 +920,12 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
     // ✅ Harçlık geçmişine kaydet
     await AllowanceHistory.create({
       childId: childId,
-      parentId: parentId,
-      walletId: parentWallet._id,
-      amount: sendAmount,
+      parentId: parentId, // 🔹 userId değil, parentId kullanılmalı
+      walletId: parentWallet._id, // 🔹 walletId değişkeni yoktu, parentWallet’tan alıyoruz
+      amount: sendAmount, // 🔹 sendAmount değişkenini kullanalım
       note: `₺${sendAmount} harçlık gönderildi.`,
     });
+
 
     console.log(`📘 Harçlık geçmişi kaydedildi: Parent(${parentId}) → Child(${childId}) ₺${sendAmount}`);
 
