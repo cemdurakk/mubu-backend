@@ -825,7 +825,6 @@ const enrichedChildren = await Promise.all(
   }
 });
 
-
 /**
  * 🎯 5. Harçlık gönderme (ebeveyn → çocuk)
  * POST /api/parent/send-allowance
@@ -837,7 +836,7 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
     const sendAmount = Number(amount);
     const AllowanceHistory = require("../models/AllowanceHistory");
 
-    // 1️⃣ Kontroller
+    // 1️⃣ Giriş kontrolleri
     if (!childId || !sendAmount || sendAmount <= 0) {
       return res.status(400).json({
         success: false,
@@ -845,6 +844,7 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       });
     }
 
+    // 2️⃣ Ebeveyn doğrulaması
     const parent = await User.findById(parentId);
     if (!parent || parent.role !== "parent") {
       return res.status(403).json({
@@ -853,6 +853,7 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       });
     }
 
+    // 3️⃣ Çocuk doğrulaması
     const child = await User.findById(childId);
     if (!child || child.role !== "child") {
       return res.status(404).json({
@@ -861,7 +862,7 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       });
     }
 
-    // 2️⃣ Ebeveyn-çocuk ilişkisini doğrula
+    // 4️⃣ Ebeveyn–çocuk ilişkisini doğrula
     const isParent = child.parentIds.some((id) => id.toString() === parentId.toString());
     if (!isParent) {
       return res.status(403).json({
@@ -870,7 +871,7 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       });
     }
 
-    // 3️⃣ Cüzdanları bul
+    // 5️⃣ Cüzdanları bul
     const parentWallet = await Wallet.findOne({ userId: parentId });
     const childWallet = await Wallet.findOne({ userId: childId });
 
@@ -888,7 +889,7 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
       });
     }
 
-    // 4️⃣ İsimleri ProfileInfo'dan çek
+    // 6️⃣ İsimleri ProfileInfo'dan çek
     const ProfileInfo = require("../models/ProfileInfo");
     const parentProfile = await ProfileInfo.findOne({ userId: parentId });
     const childProfile = await ProfileInfo.findOne({ userId: childId });
@@ -896,19 +897,20 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
     const parentName = parentProfile?.name || "Ebeveyn";
     const childName = childProfile?.name || "Çocuk";
 
-    // 5️⃣ Bakiye güncelle
+    // 7️⃣ Bakiye güncelle
     parentWallet.balance -= sendAmount;
     childWallet.balance += sendAmount;
     await parentWallet.save();
     await childWallet.save();
 
-    // 6️⃣ Bildirim oluştur (her iki tarafa)
+    // 8️⃣ Bildirim oluştur (ebeveyn + çocuk)
     await Notification.create([
       {
         userId: parentId,
         type: "allowance_sent",
         description: `${childName} isimli çocuğa ₺${sendAmount.toFixed(2)} harçlık gönderildi.`,
         relatedUserId: childId,
+        amount: sendAmount,
         status: "success",
       },
       {
@@ -916,23 +918,41 @@ router.post("/send-allowance", authMiddleware, async (req, res) => {
         type: "allowance_received",
         description: `${parentName} size ₺${sendAmount.toFixed(2)} harçlık gönderdi.`,
         relatedUserId: parentId,
+        amount: sendAmount,
         status: "success",
       },
     ]);
 
-    // ✅ Harçlık geçmişine kaydet
+    // 9️⃣ Harçlık geçmişine kaydet
     await AllowanceHistory.create({
       childId: childId,
-      parentId: parentId, // 🔹 userId değil, parentId kullanılmalı
-      walletId: parentWallet._id, // 🔹 walletId değişkeni yoktu, parentWallet’tan alıyoruz
-      amount: sendAmount, // 🔹 sendAmount değişkenini kullanalım
+      parentId: parentId,
+      walletId: parentWallet._id,
+      amount: sendAmount,
       note: `₺${sendAmount.toFixed(2)} harçlık gönderildi.`,
     });
 
+    // 🔟 Eğer çocuğa ait pending allowance_request varsa → tamamla
+    const parentIds = [parentId];
+    if (parent.wife_husband) parentIds.push(parent.wife_husband);
 
-    console.log(`📘 Harçlık geçmişi kaydedildi: Parent(${parentId}) → Child(${childId}) ₺${sendAmount.toFixed(2)}`);
+    await Notification.updateMany(
+      {
+        userId: { $in: parentIds },
+        type: "allowance_request",
+        relatedUserId: childId,
+        status: "pending",
+      },
+      { $set: { status: "completed" } }
+    );
 
-    // 7️⃣ Başarılı yanıt
+    console.log(
+      `📘 Harçlık gönderildi: Parent(${parentId}) → Child(${childId}) ₺${sendAmount.toFixed(
+        2
+      )} | Pending istekler tamamlandı.`
+    );
+
+    // ✅ Başarılı yanıt
     res.json({
       success: true,
       message: `${childName} isimli çocuğa ₺${sendAmount} harçlık başarıyla gönderildi.`,
@@ -1219,6 +1239,66 @@ router.get("/suggested-tasks", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
+/**
+ * 🎯 Bekleyen harçlık isteklerini getir
+ * GET /api/parent/allowance-requests
+ */
+router.get("/allowance-requests", authMiddleware, async (req, res) => {
+  try {
+    const parentId = req.user.userId;
+
+    // 1️⃣ Role kontrolü
+    if (req.user.role !== "parent") {
+      return res.status(403).json({
+        success: false,
+        message: "Bu işlem sadece ebeveyn kullanıcılar tarafından yapılabilir.",
+      });
+    }
+
+    // 2️⃣ Pending allowance_request bildirimlerini bul
+    const requests = await Notification.find({
+      userId: parentId,
+      type: "allowance_request",
+      status: "pending",
+    })
+      .populate("relatedUserId", "name phone role")
+      .sort({ createdAt: -1 });
+
+    if (!requests.length) {
+      return res.json({
+        success: true,
+        requests: [],
+        message: "Bekleyen harçlık isteği bulunmamaktadır.",
+      });
+    }
+
+    // 3️⃣ Yanıt formatı
+    const formatted = requests.map((r) => ({
+      id: r._id,
+      childId: r.relatedUserId?._id,
+      childName: r.relatedUserId?.name || "Bilinmeyen Çocuk",
+      phone: r.relatedUserId?.phone || "",
+      amount: r.amount,
+      description: r.description,
+      createdAt: r.createdAt,
+      status: r.status,
+    }));
+
+    res.json({
+      success: true,
+      count: formatted.length,
+      requests: formatted,
+    });
+  } catch (err) {
+    console.error("❌ Harçlık isteklerini getirme hatası:", err);
+    res.status(500).json({
+      success: false,
+      message: "Sunucu hatası: " + err.message,
+    });
+  }
+});
+
 
 
 
