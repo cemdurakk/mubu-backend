@@ -58,6 +58,20 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     await piggyBank.save();
 
+    // 🔹 Transaction kaydı oluştur
+    const Transaction = require("../models/Transaction");
+    await Transaction.create({
+      userId,
+      piggyBankId: piggyBank._id,
+      piggyBankName: piggyBank.name,
+      subWalletType: type || null,
+      type: "piggybank_create",
+      amount: piggyBank.currentAmount || 0,
+      description: `"${piggyBank.name}" adlı ${type} tipinde kumbara oluşturuldu.`,
+      status: "completed",
+      createdAt: new Date(),
+    });
+
     // 📨 Davet bildirimi gönder
     if (piggyBank.pendingInvites.length > 0) {
       const Notification = require("../models/Notification");
