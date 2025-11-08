@@ -790,32 +790,32 @@ router.get("/children", authMiddleware, async (req, res) => {
     const ProfileInfo = require("../models/ProfileInfo");
     const Wallet = require("../models/Wallet");
 
-    const enrichedChildren = await Promise.all(
-      children.map(async (child) => {
-        const profile = await ProfileInfo.findOne({ userId: child._id });
-        const wallet = await Wallet.findOne({ userId: child._id });
+const enrichedChildren = await Promise.all(
+  children.map(async (child) => {
+    const profile = await ProfileInfo.findOne({ userId: child._id });
+    const wallet = await Wallet.findOne({ userId: child._id });
 
-        // 🔹 Durum hesapla
-        let status = "active";
-        if (!child.verified) status = "pendingVerification";
-        else if (!child.pinCreated) status = "pinNotCreated";
-        else if (!child.profileCompleted) status = "profileIncomplete";
+    let status = "active";
+    if (!child.verified) status = "pendingVerification";
+    else if (!child.pinCreated) status = "pinNotCreated";
+    else if (!child.profileCompleted) status = "profileIncomplete";
 
-        return {
-          _id: child._id, // ✅ Flutter ile birebir eşleşsin
-          name: profile?.name || "İsimsiz Kullanıcı",
-          phone: child.phone || "", // ✅ Flutter “verify” ekranına geçerken lazım
-          verified: child.verified,
-          pinCreated: child.pinCreated,
-          profileCompleted: child.profileCompleted,
-          firstLoginCompleted: child.firstLoginCompleted,
-          walletBalance: wallet ? wallet.balance : 0,
-          role: child.role,
-          status,
-        };
+    return {
+      _id: child._id,
+      name: profile?.name || "İsimsiz Kullanıcı",
+      phone: child.phone || "",
+      verified: child.verified,
+      pinCreated: child.pinCreated,
+      profileCompleted: child.profileCompleted,
+      firstLoginCompleted: child.firstLoginCompleted,
+      walletBalance: wallet ? wallet.balance : 0,
+      role: child.role,
+      status,
+      avatar: profile?.avatar || null, // ✅ eklendi
+    };
+  })
+);
 
-      })
-    );
 
 
     res.json({ success: true, children: enrichedChildren });
