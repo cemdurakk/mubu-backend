@@ -41,7 +41,10 @@ const notificationSchema = new mongoose.Schema(
       "spouse_invite_declined",
       "spouse_linked", // ✅ yeni eklendi
 
-      "allowance_received" // ✅ BURAYI EKLE
+      "allowance_received", // ✅ BURAYI EKLE
+
+      "task_created",
+      "task_completed",
     ],
     required: true,
   },

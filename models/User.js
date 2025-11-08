@@ -62,6 +62,14 @@ const userSchema = new mongoose.Schema(
     subscriptionExpiresAt: { type: Date, default: null },
     allowanceHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Notification" }],
 
+        // 🟣 Görev sistemi – çocuk aktif görevleri
+    activeTasks: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Task",
+        default: [],
+      },
+    ],
 
     // Kullanıcı durum alanları
     verified: { type: Boolean, default: false },
