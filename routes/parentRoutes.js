@@ -8,6 +8,8 @@ const Wallet = require("../models/Wallet");
 const bcrypt = require("bcryptjs");
 const { sendSMS } = require("../services/smsService");
 const AllowanceHistory = require("../models/AllowanceHistory");
+const SuggestedTask = require("../models/SuggestedTask");
+
 
 async function generateUniqueInviteID() {
   let inviteID;
@@ -1050,7 +1052,8 @@ router.get("/allowance-history/:childId", authMiddleware, async (req, res) => {
 // ✅ Yeni görev oluşturma
 const Task = require("../models/Task");
 
-router.post("/tasks/create", authMiddleware, async (req, res) => {
+router.post("/tasks/add", authMiddleware, async (req, res) => {
+
   try {
     const parentId = req.user.userId;
     const { childId, title, description, rewardAmount } = req.body;
@@ -1198,6 +1201,33 @@ router.post("/tasks/complete/:taskId", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası." });
   }
 });
+
+/**
+ * 🎯 Önerilen görevleri getir
+ * GET /api/parent/suggested-tasks
+ */
+router.get("/suggested-tasks", authMiddleware, async (req, res) => {
+  try {
+    const { category } = req.query;
+
+    const filter = { isActive: true };
+    if (category) filter.category = category;
+
+    const tasks = await SuggestedTask.find(filter)
+      .sort({ category: 1, createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      count: tasks.length,
+      tasks,
+    });
+  } catch (err) {
+    console.error("❌ Önerilen görevleri getirme hatası:", err);
+    res.status(500).json({ success: false, message: "Sunucu hatası." });
+  }
+});
+
 
 
 
