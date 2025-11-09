@@ -807,15 +807,15 @@ router.get("/child/:childId", authMiddleware, async (req, res) => {
   }
 });
 
-// 💸 Ebeveyn → Çocuğun kumbarasına para gönderme
+// 💸 Ebeveyn → Çocuğun kumbarasına para gönderme (cüzdanlar da güncellenir)
 router.post("/child/:childId/transfer", authMiddleware, async (req, res) => {
   try {
     const { childId } = req.params;
     const { piggyBankId, amount } = req.body;
     const parentId = req.user.userId;
 
-    if (!childId || !piggyBankId || !amount) {
-      return res.status(400).json({ success: false, message: "Eksik bilgi gönderildi." });
+    if (!childId || !piggyBankId || !amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: "Eksik veya geçersiz bilgi gönderildi." });
     }
 
     const User = require("../models/User");
@@ -839,58 +839,70 @@ router.post("/child/:childId/transfer", authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, message: "Bu çocuk size ait değil." });
     }
 
-    // 🎯 Parent cüzdanı ve kumbara kontrolü
+    // 🎯 Cüzdan ve kumbara kontrolleri
     const parentWallet = await Wallet.findOne({ userId: parentId });
+    const childWallet = await Wallet.findOne({ userId: childId });
     const piggyBank = await PiggyBank.findById(piggyBankId);
 
-    if (!parentWallet || !piggyBank) {
+    if (!parentWallet || !childWallet || !piggyBank) {
       return res.status(404).json({ success: false, message: "Cüzdan veya kumbara bulunamadı." });
     }
 
     if (parentWallet.balance < amount) {
-      return res.status(400).json({ success: false, message: "Yetersiz bakiye." });
+      return res.status(400).json({ success: false, message: "Ebeveyn bakiyesi yetersiz." });
     }
 
-    // 💰 Transfer işlemi
+    // 💰 İşlem: ebeveyn cüzdanından düş, çocuğun cüzdanına ve kumbarasına ekle
     parentWallet.balance -= amount;
+    childWallet.balance += amount;
     piggyBank.currentAmount += amount;
+
     await parentWallet.save();
+    await childWallet.save();
     await piggyBank.save();
 
-    // 🔹 Transaction (ebeveyn)
+    // 🧾 Transaction kayıtları
     await Transaction.create({
       userId: parentId,
-      piggyBankId: piggyBank._id,
+      piggyBankId,
       piggyBankName: piggyBank.name,
       subWalletType: piggyBank.type || null,
       type: "transfer",
       amount,
-      description: `Ebeveyn olarak "${piggyBank.name}" adlı kumbaraya ₺${amount} gönderildi.`,
+      description: `Ebeveyn olarak ${child.phone || "çocuğuna"} ₺${amount} gönderildi.`,
       status: "completed",
       createdAt: new Date(),
     });
 
-    // 🔹 Transaction (çocuk)
     await Transaction.create({
       userId: childId,
-      piggyBankId: piggyBank._id,
+      piggyBankId,
       piggyBankName: piggyBank.name,
       subWalletType: piggyBank.type || null,
       type: "piggybank_deposit",
       amount,
-      description: `Ebeveyninden "${piggyBank.name}" kumbarasına ₺${amount} geldi.`,
+      description: `${parentId} tarafından "${piggyBank.name}" kumbarasına ₺${amount} gönderildi.`,
       status: "completed",
       createdAt: new Date(),
     });
 
-    // 🔔 Bildirim (çocuğa)
+    // 🔔 Bildirimler
     const parentProfile = await ProfileInfo.findOne({ userId: parentId });
     const parentName = parentProfile?.name || "Ebeveyn";
+
+    await Notification.create({
+      userId: parentId,
+      type: "allowance_sent",
+      amount,
+      description: `${child.name || "çocuğuna"} ₺${amount} gönderildi.`,
+      status: "completed",
+    });
+
     await Notification.create({
       userId: childId,
-      type: "transfer",
-      description: `${parentName} sana "${piggyBank.name}" kumbarana ₺${amount} gönderdi.`,
+      type: "piggybank_deposit",
       amount,
+      description: `${parentName} kumbarana ₺${amount} ekledi.`,
       status: "completed",
     });
 
@@ -899,12 +911,14 @@ router.post("/child/:childId/transfer", authMiddleware, async (req, res) => {
       message: "Para başarıyla çocuğun kumbarasına gönderildi.",
       piggyBank,
       parentBalance: parentWallet.balance,
+      childBalance: childWallet.balance,
     });
   } catch (err) {
     console.error("❌ Çocuğa transfer hatası:", err);
     return res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
+
 
 
 
