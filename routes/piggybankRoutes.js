@@ -685,6 +685,99 @@ router.post("/withdraw", authMiddleware, async (req, res) => {
 });
 
 
+// 👨‍👩‍👧 Ebeveynin çocuğu için kumbara oluşturması
+router.post("/child/:childId/create", authMiddleware, async (req, res) => {
+  try {
+    const { childId } = req.params;
+    const { type, name, targetAmount, currentAmount, category, color } = req.body;
+    const parentId = req.user.userId;
+
+    if (!childId || !type || !name) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi gönderildi." });
+    }
+
+    const User = require("../models/User");
+    const Notification = require("../models/Notification");
+    const Transaction = require("../models/Transaction");
+    const ProfileInfo = require("../models/ProfileInfo");
+
+    // 🎯 Çocuk var mı kontrol et
+    const child = await User.findById(childId);
+    if (!child) {
+      return res.status(404).json({ success: false, message: "Çocuk bulunamadı." });
+    }
+
+    // 🎯 Ebeveyn ilişkisi doğrula
+    const isParentOfChild =
+      child.parentIds?.map(id => id.toString()).includes(parentId.toString()) ||
+      child.parentId?.toString() === parentId.toString();
+    if (!isParentOfChild) {
+      return res.status(403).json({ success: false, message: "Bu çocuk size ait değil." });
+    }
+
+    // 🎯 Çocuğun subWallet’ını bul veya oluştur
+    let subWallet = await SubWallet.findOne({ userId: childId, type });
+    if (!subWallet) {
+      subWallet = new SubWallet({
+        userId: childId,
+        type,
+        participants: [childId],
+        piggyBanks: [],
+      });
+      await subWallet.save();
+    }
+
+    // 🎯 Kumbara oluştur
+    const piggyBank = new PiggyBank({
+      subWalletId: subWallet._id,
+      name,
+      targetAmount: type === "savings" ? targetAmount || 0 : 0,
+      currentAmount: currentAmount || 0,
+      category,
+      color,
+      participants: [childId],
+      pendingInvites: [],
+      owner: childId,
+    });
+    await piggyBank.save();
+
+    // 🔹 SubWallet’a ekle
+    subWallet.piggyBanks.push(piggyBank._id);
+    await subWallet.save();
+
+    // 🔹 Transaction kaydı oluştur (ebeveyn tarafından)
+    await Transaction.create({
+      userId: parentId,
+      piggyBankId: piggyBank._id,
+      piggyBankName: piggyBank.name,
+      subWalletType: type,
+      type: "piggybank_create_child",
+      amount: piggyBank.currentAmount || 0,
+      description: `Ebeveyn tarafından "${piggyBank.name}" adlı kumbara ${child.phone || "çocuk hesabı"} için oluşturuldu.`,
+      status: "completed",
+      createdAt: new Date(),
+    });
+
+    // 🔹 Çocuğa bildirim gönder
+    const parentProfile = await ProfileInfo.findOne({ userId: parentId });
+    const parentName = parentProfile?.name || "Ebeveyn";
+    await Notification.create({
+      userId: childId,
+      type: "piggybank_create",
+      description: `${parentName} senin için "${piggyBank.name}" adlı bir kumbara oluşturdu.`,
+      status: "completed",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Çocuk için kumbara başarıyla oluşturuldu.",
+      piggyBank,
+    });
+  } catch (err) {
+    console.error("❌ Çocuk için kumbara oluşturma hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası." });
+  }
+});
 
 
 
