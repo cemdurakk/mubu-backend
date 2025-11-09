@@ -807,5 +807,105 @@ router.get("/child/:childId", authMiddleware, async (req, res) => {
   }
 });
 
+// 💸 Ebeveyn → Çocuğun kumbarasına para gönderme
+router.post("/child/:childId/transfer", authMiddleware, async (req, res) => {
+  try {
+    const { childId } = req.params;
+    const { piggyBankId, amount } = req.body;
+    const parentId = req.user.userId;
+
+    if (!childId || !piggyBankId || !amount) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi gönderildi." });
+    }
+
+    const User = require("../models/User");
+    const Wallet = require("../models/Wallet");
+    const PiggyBank = require("../models/PiggyBank");
+    const Notification = require("../models/Notification");
+    const Transaction = require("../models/Transaction");
+    const ProfileInfo = require("../models/ProfileInfo");
+
+    // 🎯 Ebeveyn-çocuk ilişkisini doğrula
+    const child = await User.findById(childId);
+    if (!child) {
+      return res.status(404).json({ success: false, message: "Çocuk bulunamadı." });
+    }
+
+    const isParentOfChild =
+      child.parentIds?.map(id => id.toString()).includes(parentId.toString()) ||
+      child.parentId?.toString() === parentId.toString();
+
+    if (!isParentOfChild) {
+      return res.status(403).json({ success: false, message: "Bu çocuk size ait değil." });
+    }
+
+    // 🎯 Parent cüzdanı ve kumbara kontrolü
+    const parentWallet = await Wallet.findOne({ userId: parentId });
+    const piggyBank = await PiggyBank.findById(piggyBankId);
+
+    if (!parentWallet || !piggyBank) {
+      return res.status(404).json({ success: false, message: "Cüzdan veya kumbara bulunamadı." });
+    }
+
+    if (parentWallet.balance < amount) {
+      return res.status(400).json({ success: false, message: "Yetersiz bakiye." });
+    }
+
+    // 💰 Transfer işlemi
+    parentWallet.balance -= amount;
+    piggyBank.currentAmount += amount;
+    await parentWallet.save();
+    await piggyBank.save();
+
+    // 🔹 Transaction (ebeveyn)
+    await Transaction.create({
+      userId: parentId,
+      piggyBankId: piggyBank._id,
+      piggyBankName: piggyBank.name,
+      subWalletType: piggyBank.type || null,
+      type: "transfer",
+      amount,
+      description: `Ebeveyn olarak "${piggyBank.name}" adlı kumbaraya ₺${amount} gönderildi.`,
+      status: "completed",
+      createdAt: new Date(),
+    });
+
+    // 🔹 Transaction (çocuk)
+    await Transaction.create({
+      userId: childId,
+      piggyBankId: piggyBank._id,
+      piggyBankName: piggyBank.name,
+      subWalletType: piggyBank.type || null,
+      type: "piggybank_deposit",
+      amount,
+      description: `Ebeveyninden "${piggyBank.name}" kumbarasına ₺${amount} geldi.`,
+      status: "completed",
+      createdAt: new Date(),
+    });
+
+    // 🔔 Bildirim (çocuğa)
+    const parentProfile = await ProfileInfo.findOne({ userId: parentId });
+    const parentName = parentProfile?.name || "Ebeveyn";
+    await Notification.create({
+      userId: childId,
+      type: "transfer",
+      description: `${parentName} sana "${piggyBank.name}" kumbarana ₺${amount} gönderdi.`,
+      amount,
+      status: "completed",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Para başarıyla çocuğun kumbarasına gönderildi.",
+      piggyBank,
+      parentBalance: parentWallet.balance,
+    });
+  } catch (err) {
+    console.error("❌ Çocuğa transfer hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
 
 module.exports = router;
