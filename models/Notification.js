@@ -47,6 +47,7 @@ const notificationSchema = new mongoose.Schema(
         "task_assigned",
         "task_completed",
         "allowance_request",
+        "piggybank_deposit", // ✅ yeni eklendi
       ],
       required: true,
     },
