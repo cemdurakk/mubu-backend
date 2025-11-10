@@ -16,7 +16,8 @@ const transactionSchema = new mongoose.Schema(
         "piggybank_create", // yeni kumbara oluşturma
         "piggybank_deposit", // kumbaraya para ekleme
         "piggybank_withdraw", // kumbaradan para çekme
-        "piggybank_delete" // kumbara silme
+        "piggybank_delete",// kumbara silme
+        "piggybank_create_child"
       ],
       required: true,
     },
