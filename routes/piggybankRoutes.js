@@ -106,93 +106,6 @@ router.post("/create", authMiddleware, async (req, res) => {
 });
 
 
-// ✅ Belirli bir çocuğun kumbaralarını getir
-router.get("/child/:childId", authMiddleware, async (req, res) => {
-  try {
-    const { childId } = req.params;
-
-    // 🎯 Çocuğun SubWallet'larını bul
-    const subWallets = await SubWallet.find({ userId: childId });
-    if (!subWallets.length) {
-      return res.status(200).json({ success: true, piggyBanks: [] });
-    }
-
-    // 🎯 O SubWallet'lara bağlı kumbaraları getir
-    const piggyBanks = await PiggyBank.find({
-      subWalletId: { $in: subWallets.map(sw => sw._id) },
-    })
-      .populate("subWalletId", "type")
-      .sort({ createdAt: -1 });
-
-    return res.status(200).json({
-      success: true,
-      piggyBanks,
-    });
-  } catch (err) {
-    console.error("❌ Çocuk kumbaralarını getirme hatası:", err);
-    return res.status(500).json({ success: false, message: "Sunucu hatası" });
-  }
-});
-
-// ✅ Kullanıcının tüm kumbaralarını getir
-router.get("/all", authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.userId;  // ✅ doğru alan
-
-    // Kullanıcının bulunduğu tüm subWallet’ları getir
-    const subWallets = await SubWallet.find({ participants: userId })
-      .populate({
-        path: "piggyBanks",
-        populate: {
-          path: "subWalletId",
-          select: "type", // sadece type alanını getir
-        },
-      });
-
-
-    // Tüm kumbaraları birleştir
-    let piggyBanks = [];
-    subWallets.forEach(sw => {
-      piggyBanks = piggyBanks.concat(sw.piggyBanks);
-    });
-
-    // Kullanılan toplam bakiye (targetAmount’ların toplamı)
-    const usedBalance = piggyBanks.reduce((sum, p) => sum + (p.currentAmount || 0), 0);
-
-    // Tarihe göre sırala (son eklenenler önce gelsin)
-    piggyBanks.sort((a, b) => b.createdAt - a.createdAt);
-
-    return res.status(200).json({
-      success: true,
-      piggyBanks,
-      usedBalance, // ✅ eklendi
-    });
-  } catch (err) {
-    console.error("❌ Tüm kumbaraları listeleme hatası:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
-  }
-});
-
-// ✅ Belirli bir SubWallet’ın kumbaralarını getir
-router.get("/:subWalletId", authMiddleware, async (req, res) => {
-  try {
-    const { subWalletId } = req.params;
-
-    const piggyBanks = await PiggyBank.find({ subWalletId }).sort({ createdAt: -1 });
-
-    return res.status(200).json({
-      success: true,
-      piggyBanks,
-    });
-  } catch (err) {
-    console.error("❌ Belirli subWallet kumbaraları listeleme hatası:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
-  }
-});
-
-
-
-
 // 📩 Kullanıcı davet et
 router.post("/invite", authMiddleware, async (req, res) => {
   try {
@@ -921,6 +834,91 @@ router.post("/child/:childId/transfer", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Belirli bir çocuğun kumbaralarını getir
+router.get("/child/:childId", authMiddleware, async (req, res) => {
+  try {
+    const { childId } = req.params;
+
+    // 🎯 Çocuğun SubWallet'larını bul
+    const subWallets = await SubWallet.find({ userId: childId });
+    if (!subWallets.length) {
+      return res.status(200).json({ success: true, piggyBanks: [] });
+    }
+
+    // 🎯 O SubWallet'lara bağlı kumbaraları getir
+    const piggyBanks = await PiggyBank.find({
+      subWalletId: { $in: subWallets.map(sw => sw._id) },
+    })
+      .populate("subWalletId", "type")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      piggyBanks,
+    });
+  } catch (err) {
+    console.error("❌ Çocuk kumbaralarını getirme hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+// ✅ Kullanıcının tüm kumbaralarını getir
+router.get("/all", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;  // ✅ doğru alan
+
+    // Kullanıcının bulunduğu tüm subWallet’ları getir
+    const subWallets = await SubWallet.find({ participants: userId })
+      .populate({
+        path: "piggyBanks",
+        populate: {
+          path: "subWalletId",
+          select: "type", // sadece type alanını getir
+        },
+      });
+
+
+    // Tüm kumbaraları birleştir
+    let piggyBanks = [];
+    subWallets.forEach(sw => {
+      piggyBanks = piggyBanks.concat(sw.piggyBanks);
+    });
+
+    // Kullanılan toplam bakiye (targetAmount’ların toplamı)
+    const usedBalance = piggyBanks.reduce((sum, p) => sum + (p.currentAmount || 0), 0);
+
+    // Tarihe göre sırala (son eklenenler önce gelsin)
+    piggyBanks.sort((a, b) => b.createdAt - a.createdAt);
+
+    return res.status(200).json({
+      success: true,
+      piggyBanks,
+      usedBalance, // ✅ eklendi
+    });
+  } catch (err) {
+    console.error("❌ Tüm kumbaraları listeleme hatası:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+
+
+// ✅ Belirli bir SubWallet’ın kumbaralarını getir
+router.get("/:subWalletId", authMiddleware, async (req, res) => {
+  try {
+    const { subWalletId } = req.params;
+
+    const piggyBanks = await PiggyBank.find({ subWalletId }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      piggyBanks,
+    });
+  } catch (err) {
+    console.error("❌ Belirli subWallet kumbaraları listeleme hatası:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+});
 
 
 
