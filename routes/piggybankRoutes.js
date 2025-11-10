@@ -6,6 +6,36 @@ const SubWallet = require("../models/SubWallet");
 const mongoose = require("mongoose");
 
 
+// ✅ Belirli bir çocuğun kumbaralarını getir
+router.get("/child/:childId", authMiddleware, async (req, res) => {
+  try {
+    const { childId } = req.params;
+
+    // 🎯 Çocuğun SubWallet'larını bul
+    const subWallets = await SubWallet.find({ userId: childId });
+    if (!subWallets.length) {
+      return res.status(200).json({ success: true, piggyBanks: [] });
+    }
+
+    // 🎯 O SubWallet'lara bağlı kumbaraları getir
+    const piggyBanks = await PiggyBank.find({
+      subWalletId: { $in: subWallets.map(sw => sw._id) },
+    })
+      .populate("subWalletId", "type")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      piggyBanks,
+    });
+  } catch (err) {
+    console.error("❌ Çocuk kumbaralarını getirme hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
+
+
+
 // 💸 Ebeveyn → Çocuğun kumbarasına para gönderme (cüzdanlar da güncellenir)
 router.post("/child/:childId/transfer", authMiddleware, async (req, res) => {
   try {
@@ -211,36 +241,6 @@ router.post("/child/:childId/create", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("❌ Çocuk için kumbara oluşturma hatası:", err);
     return res.status(500).json({ success: false, message: "Sunucu hatası." });
-  }
-});
-
-
-
-// ✅ Belirli bir çocuğun kumbaralarını getir
-router.get("/child/:childId", authMiddleware, async (req, res) => {
-  try {
-    const { childId } = req.params;
-
-    // 🎯 Çocuğun SubWallet'larını bul
-    const subWallets = await SubWallet.find({ userId: childId });
-    if (!subWallets.length) {
-      return res.status(200).json({ success: true, piggyBanks: [] });
-    }
-
-    // 🎯 O SubWallet'lara bağlı kumbaraları getir
-    const piggyBanks = await PiggyBank.find({
-      subWalletId: { $in: subWallets.map(sw => sw._id) },
-    })
-      .populate("subWalletId", "type")
-      .sort({ createdAt: -1 });
-
-    return res.status(200).json({
-      success: true,
-      piggyBanks,
-    });
-  } catch (err) {
-    console.error("❌ Çocuk kumbaralarını getirme hatası:", err);
-    return res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 });
 
