@@ -35,14 +35,15 @@ app.use("/api/auth", authRoutes);
 app.use("/api/sms", smsRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/profile", profileRoutes);
-app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // 👈 yeni ekledik
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/piggybank", piggyBankRoutes);
 app.use("/api", transactionRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/parent", parentRoutes);
 app.use("/api/allowance", allowanceRoutes);
-app.use("/api/child", childRoutes);
+app.use("/api/child", childRoutes);  // 👈 BUNU piggybank’tan önce taşı
+app.use("/api/piggybank", piggyBankRoutes); // 👈 EN SONDA OLMALI ✅
+
 
 
 // ✅ Test endpoint
