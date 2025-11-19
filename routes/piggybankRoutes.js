@@ -933,6 +933,15 @@ router.get("/all", authMiddleware, async (req, res) => {
       piggyBanks = piggyBanks.concat(sw.piggyBanks);
     });
 
+    console.log("📦 SubWallet sayısı:", subWallets.length);
+    console.log("🧠 Toplam piggyBanks:", piggyBanks.length);
+    piggyBanks.forEach((p, i) => {
+      console.log(
+        `#${i + 1} → ${p.name} | ID: ${p._id || p.id} | type: ${p.subWalletId?.type || "?"}`
+      );
+    });
+
+
     // Kullanılan toplam bakiye (targetAmount’ların toplamı)
     const usedBalance = piggyBanks.reduce((sum, p) => sum + (p.currentAmount || 0), 0);
 
