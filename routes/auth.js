@@ -240,6 +240,60 @@ router.post("/complete-profile", async (req, res) => {
     user.profileCompleted = true;
     await user.save();
 
+    // ✅ Profil tamamlandıktan sonra otomatik 7 kumbara oluştur
+    try {
+      const SubWallet = require("../models/SubWallet");
+      const PiggyBank = require("../models/PiggyBank");
+
+      // 1️⃣ Kullanıcının individual subwallet'ını kontrol et / oluştur
+      let subWallet = await SubWallet.findOne({ userId: user._id, type: "individual" });
+      if (!subWallet) {
+        subWallet = new SubWallet({
+          userId: user._id,
+          type: "individual",
+          participants: [user._id],
+          piggyBanks: [],
+        });
+        await subWallet.save();
+      }
+
+      // 2️⃣ Otomatik oluşturulacak kumbaralar
+      const defaultPiggyBanks = [
+        { name: "Abonelik", color: "#7E57C2" },
+        { name: "Kahve", color: "#FF7043" },
+        { name: "Yemek", color: "#66BB6A" },
+        { name: "Fatura", color: "#42A5F5" },
+        { name: "Giyim", color: "#AB47BC" },
+        { name: "Market", color: "#FFA726" },
+        { name: "Eğlence", color: "#EC407A" },
+      ];
+
+      // 3️⃣ Kumbara kayıtlarını paralel oluştur
+      const createdPiggyBanks = await Promise.all(
+        defaultPiggyBanks.map(data =>
+          PiggyBank.create({
+            subWalletId: subWallet._id,
+            name: data.name,
+            color: data.color,
+            targetAmount: 0,
+            currentAmount: 0,
+            participants: [user._id],
+            owner: user._id,
+          })
+        )
+      );
+
+      // 4️⃣ SubWallet’a ekle ve kaydet
+      subWallet.piggyBanks.push(...createdPiggyBanks.map(pb => pb._id));
+      await subWallet.save();
+
+      console.log(`✅ Kullanıcı ${user._id} için ${createdPiggyBanks.length} otomatik kumbara oluşturuldu.`);
+    } catch (autoErr) {
+      console.error("❌ Otomatik kumbara oluşturma hatası:", autoErr);
+    }
+
+
+
     res.json({
       success: true,
       message: "Profil bilgileri kaydedildi",
