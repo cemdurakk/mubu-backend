@@ -543,9 +543,12 @@ async function createDefaultPiggyBanksForUser(userId) {
   } catch (err) {
     console.error("❌ Varsayılan kumbara oluşturma hatası:", err);
   }
+
+
+
 }
 
-
+module.exports.createDefaultPiggyBanksForUser = createDefaultPiggyBanksForUser;
 
 
 module.exports = router;

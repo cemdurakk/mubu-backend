@@ -10,6 +10,8 @@ const { sendSMS } = require("../services/smsService");
 const AllowanceHistory = require("../models/AllowanceHistory");
 const SuggestedTask = require("../models/SuggestedTask");
 const Task = require("../models/Task");
+const { createDefaultPiggyBanksForUser } = require("./auth");
+
 
 
 async function generateUniqueInviteID() {
@@ -500,6 +502,16 @@ router.post("/complete-child-profile", authMiddleware, async (req, res) => {
     child.profileCompleted = true;
     child.profileInfoId = profile._id;
     await child.save();
+
+    // ✅ Çocuk profili tamamlandıktan sonra otomatik 7 kumbara oluştur
+    try {
+      await createDefaultPiggyBanksForUser(child._id);
+      console.log(`🐷 ${child.phone} için varsayılan kumbaralar oluşturuldu.`);
+    } catch (autoErr) {
+      console.error("❌ Çocuk için varsayılan kumbara oluşturulamadı:", autoErr);
+    }
+
+
 
     // 6️⃣ Bildirim oluştur
     await Notification.create({
