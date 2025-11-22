@@ -256,6 +256,47 @@ router.post("/reject", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * 🟣 6) EBEVEYN → TÜM ÇOCUKLARA AİT GÖREVLERİ LİSTELE
+ * GET /api/tasks
+ */
+router.get("/", authMiddleware, async (req, res) => {
+  try {
+    const parentId = req.user.userId;
+
+    // 1️⃣ Kullanıcı ebeveyn mi?
+    const parent = await User.findById(parentId);
+    if (!parent || parent.role !== "parent") {
+      return res.status(403).json({
+        success: false,
+        message: "Bu işlem sadece ebeveyn içindir.",
+      });
+    }
+
+    // 2️⃣ Ebeveyne bağlı çocukları bul
+    const children = await User.find({ parentIds: parentId }).select("_id").lean();
+    const childIds = children.map((c) => c._id);
+
+    // 3️⃣ Bu çocuklara ait görevleri listele
+    const tasks = await Task.find({
+      parentId,
+      childId: { $in: childIds },
+    })
+      .sort({ createdAt: -1 })
+      .populate("childId", "name phone")
+      .lean();
+
+    return res.json({
+      success: true,
+      count: tasks.length,
+      tasks,
+    });
+
+  } catch (err) {
+    console.error("❌ Görev listeleme hatası:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+});
 
 
 module.exports = router;
