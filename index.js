@@ -30,9 +30,10 @@ const parentRoutes = require("./routes/parentRoutes");
 const allowanceRoutes = require("./routes/allowanceRoutes");
 const childRoutes = require("./routes/childRoutes");
 const tasksRoutes = require("./routes/tasksRoutes");
+const auth = require("./routes/auth");
 
 // ✅ Routes use
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", auth.router);
 app.use("/api/sms", smsRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/profile", profileRoutes);
