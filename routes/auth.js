@@ -548,7 +548,7 @@ async function createDefaultPiggyBanksForUser(userId) {
 
 }
 
-module.exports.createDefaultPiggyBanksForUser = createDefaultPiggyBanksForUser;
-
-
-module.exports = router;
+module.exports = {
+  router,
+  createDefaultPiggyBanksForUser,
+};
